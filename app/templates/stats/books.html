@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Book Stats - Mandate{% endblock %}
+{% block title %}Book Stats - {{ branding.org_name or "Mandate" }}{% endblock %}
 
 {% macro sort_link(col, label) %}
 {% set active = sort == col %}

@@ -181,5 +181,41 @@ class Settings(db.Model):
         if password:
             cls.set("smtp_password", password)
 
+    # ------------------------------------------------------------------
+    # Branding settings
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def get_branding_config(cls) -> dict:
+        """Return all branding-related settings as a dict."""
+        return {
+            "mode": cls.get("branding_mode", ""),
+            "org_name": cls.get("branding_org_name", ""),
+            "has_logo": bool(cls.get("branding_logo_content")),
+            "logo_mime": cls.get("branding_logo_mime", "image/png"),
+            "primary_color": cls.get("branding_primary_color", ""),
+            "accent_color": cls.get("branding_accent_color", ""),
+        }
+
+    @classmethod
+    def save_branding_config(cls, mode: str, org_name: str, primary_color: str, accent_color: str) -> None:
+        """Persist branding configuration."""
+        cls.set("branding_mode", mode)
+        cls.set("branding_org_name", org_name)
+        cls.set("branding_primary_color", primary_color)
+        cls.set("branding_accent_color", accent_color)
+
+    @classmethod
+    def get_logo_bytes(cls) -> bytes | None:
+        """Decode and return raw logo bytes, or None."""
+        content = cls.get("branding_logo_content")
+        if not content:
+            return None
+        import base64
+        try:
+            return base64.b64decode(content)
+        except Exception:
+            return None
+
     def __repr__(self):
         return f"<Settings {self.key}={self.value}>"

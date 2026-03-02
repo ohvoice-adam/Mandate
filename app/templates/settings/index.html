@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Settings - Mandate{% endblock %}
+{% block title %}Settings - {{ branding.org_name or "Mandate" }}{% endblock %}
 
 {% block content %}
 <div class="max-w-2xl mx-auto space-y-8">
@@ -51,6 +51,113 @@
             </button>
         </div>
     </form>
+
+    <!-- ── Branding ── -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm space-y-6">
+        <div>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Branding</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Customize the appearance of this Mandate instance. Upload a logo and set an organization name to white-label or co-brand the application.
+            </p>
+        </div>
+
+        <form method="POST" action="{{ url_for('settings.save_branding_config') }}"
+              enctype="multipart/form-data"
+              class="space-y-5">
+
+            <div>
+                <label for="branding_mode" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Branding Mode
+                </label>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    Dual: shows org name + "· Mandate". White-label: org name only.
+                </p>
+                <select name="branding_mode" id="branding_mode"
+                        class="block w-full rounded-md bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white px-3 py-2 text-sm focus:border-navy-500 focus:ring-navy-500">
+                    <option value=""           {% if not branding_config.mode %}selected{% endif %}>Mandate only (default)</option>
+                    <option value="dual"       {% if branding_config.mode == 'dual' %}selected{% endif %}>Dual-branded (org + Mandate)</option>
+                    <option value="white-label" {% if branding_config.mode == 'white-label' %}selected{% endif %}>White-label (org only)</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="branding_org_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Organization Name
+                </label>
+                <input type="text" name="branding_org_name" id="branding_org_name"
+                       value="{{ branding_config.org_name }}"
+                       placeholder="e.g., Ohio Voice"
+                       class="block w-full rounded-md bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white px-3 py-2 text-sm focus:border-navy-500 focus:ring-navy-500">
+            </div>
+
+            <div>
+                <label for="branding_logo" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Logo
+                </label>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    Displayed in the navigation bar. PNG or SVG recommended.
+                </p>
+                {% if branding_config.has_logo %}
+                <div class="mb-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-md inline-block">
+                    <img src="{{ url_for('settings.branding_logo') }}" class="h-10 w-auto" alt="Current logo">
+                </div>
+                <p class="text-xs text-green-700 dark:text-green-400 mb-2">Logo uploaded. Upload a new file to replace it.</p>
+                {% endif %}
+                <input type="file" name="branding_logo" id="branding_logo"
+                       accept="image/*"
+                       class="block w-full text-sm text-gray-700 dark:text-gray-300
+                              file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0
+                              file:text-sm file:font-medium
+                              file:bg-gray-100 dark:file:bg-gray-700
+                              file:text-gray-700 dark:file:text-gray-200
+                              hover:file:bg-gray-200 dark:hover:file:bg-gray-600">
+            </div>
+
+            <div class="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Color Palette</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                    Upload a logo to auto-fill colors, or enter hex values manually. Primary replaces the navy scale; accent replaces the orange scale.
+                </p>
+
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <label for="branding_primary_color" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Primary Color
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <input type="color" name="branding_primary_color" id="branding_primary_color"
+                                   value="{{ branding_config.primary_color or '#0c3e6b' }}"
+                                   class="h-9 w-14 rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 cursor-pointer p-0.5">
+                            <span class="text-xs font-mono text-gray-600 dark:text-gray-400" id="primary-hex-display">
+                                {{ branding_config.primary_color or '#0c3e6b' }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="branding_accent_color" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Accent Color
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <input type="color" name="branding_accent_color" id="branding_accent_color"
+                                   value="{{ branding_config.accent_color or '#f56708' }}"
+                                   class="h-9 w-14 rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 cursor-pointer p-0.5">
+                            <span class="text-xs font-mono text-gray-600 dark:text-gray-400" id="accent-hex-display">
+                                {{ branding_config.accent_color or '#f56708' }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-2">
+                <button type="submit"
+                        class="bg-accent-500 hover:bg-accent-600 text-white font-medium py-2 px-4 rounded-md text-sm">
+                    Save Branding
+                </button>
+            </div>
+        </form>
+    </div>
 
     <!-- ── Backup Configuration ── -->
     <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm space-y-6">
@@ -387,6 +494,14 @@
 </div>
 
 <script>
+// Live hex display for color pickers
+document.getElementById('branding_primary_color').addEventListener('input', function() {
+    document.getElementById('primary-hex-display').textContent = this.value;
+});
+document.getElementById('branding_accent_color').addEventListener('input', function() {
+    document.getElementById('accent-hex-display').textContent = this.value;
+});
+
 async function testSmtp() {
     const btn = document.getElementById('test-smtp-btn');
     const result = document.getElementById('test-smtp-result');

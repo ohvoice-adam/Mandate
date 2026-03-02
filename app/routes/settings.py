@@ -1,4 +1,6 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify
+import base64
+
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify, abort, Response
 from flask_login import login_required
 from sqlalchemy import text
 
@@ -43,6 +45,7 @@ def index():
     smtp_config = Settings.get_smtp_config()
     smtp_configured = email_service.is_configured()
     notify_config = Settings.get_backup_notify_config()
+    branding_config = Settings.get_branding_config()
 
     return render_template(
         "settings/index.html",
@@ -54,6 +57,7 @@ def index():
         smtp_config=smtp_config,
         smtp_configured=smtp_configured,
         notify_config=notify_config,
+        branding_config=branding_config,
     )
 
 
@@ -180,6 +184,55 @@ def test_smtp():
     except Exception as exc:
         current_app.logger.exception("SMTP test failed")
         return jsonify(ok=False, message=f"Error: {exc}"), 500
+
+
+@bp.route("/branding-logo")
+@login_required
+def branding_logo():
+    """Serve the stored org logo."""
+    data = Settings.get_logo_bytes()
+    if not data:
+        abort(404)
+    mime = Settings.get("branding_logo_mime", "image/png")
+    return Response(data, mimetype=mime)
+
+
+@bp.route("/save-branding-config", methods=["POST"])
+@login_required
+@admin_required
+def save_branding_config():
+    """Save branding configuration."""
+    mode = request.form.get("branding_mode", "")
+    if mode not in ("", "dual", "white-label"):
+        mode = ""
+    org_name = request.form.get("branding_org_name", "").strip()
+
+    # Logo upload (optional)
+    logo_file = request.files.get("branding_logo")
+    if logo_file and logo_file.filename:
+        logo_bytes = logo_file.read()
+        mime = logo_file.mimetype or "image/png"
+        Settings.set("branding_logo_content", base64.b64encode(logo_bytes).decode())
+        Settings.set("branding_logo_mime", mime)
+        # Auto-extracted colors always win when a new logo is uploaded.
+        # color inputs are always non-empty (browser default), so we can't
+        # distinguish "user typed a value" from "pre-filled default" here.
+        from app.services.branding import extract_colors_from_image
+        final_primary, final_accent = extract_colors_from_image(logo_bytes)
+    else:
+        # No new logo — honor whatever the color pickers submitted.
+        final_primary = request.form.get("branding_primary_color", "").strip()
+        final_accent = request.form.get("branding_accent_color", "").strip()
+
+    # Switching back to default Mandate branding clears stored colors so the
+    # context processor falls back to the hardcoded navy/orange defaults.
+    if mode == "":
+        final_primary = ""
+        final_accent = ""
+
+    Settings.save_branding_config(mode, org_name, final_primary, final_accent)
+    flash("Branding configuration saved", "success")
+    return redirect(url_for("settings.index"))
 
 
 def get_distinct_cities() -> list[dict]:

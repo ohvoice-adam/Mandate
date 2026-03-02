@@ -1,4 +1,7 @@
-__version__ = "0.1.1"
+__version__ = "0.1.2"
+
+DEFAULT_PRIMARY = "#0c3e6b"
+DEFAULT_ACCENT = "#f56708"
 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -44,8 +47,26 @@ def create_app(config_class=Config):
     app.register_blueprint(imports_bp, url_prefix="/imports")
 
     @app.context_processor
-    def inject_version():
-        return {"app_version": __version__}
+    def inject_globals():
+        from app.services.branding import build_palette
+        try:
+            from app.models import Settings
+            cfg = Settings.get_branding_config()
+            palette = build_palette(
+                cfg["primary_color"] or DEFAULT_PRIMARY,
+                cfg["accent_color"] or DEFAULT_ACCENT,
+            )
+        except Exception:
+            cfg = {
+                "mode": "",
+                "org_name": "",
+                "has_logo": False,
+                "logo_mime": "image/png",
+                "primary_color": "",
+                "accent_color": "",
+            }
+            palette = build_palette(DEFAULT_PRIMARY, DEFAULT_ACCENT)
+        return {"app_version": __version__, "branding": cfg, "branding_palette": palette}
 
     @app.before_request
     def enforce_password_change():
