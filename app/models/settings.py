@@ -99,6 +99,41 @@ class Settings(db.Model):
             return "(error computing fingerprint)"
 
     @classmethod
+    def get_backup_notify_config(cls) -> dict:
+        """Return backup notification settings as a dict."""
+        return {
+            "notify_email": cls.get("backup_notify_email", ""),
+            "notify_success": cls.get("backup_notify_success", ""),
+            "notify_failure": cls.get("backup_notify_failure", "false"),
+        }
+
+    @classmethod
+    def save_backup_notify_config(cls, notify_email: str, notify_success: str, notify_failure: str) -> None:
+        """Persist backup notification configuration."""
+        cls.set("backup_notify_email", notify_email)
+        cls.set("backup_notify_success", notify_success)
+        cls.set("backup_notify_failure", notify_failure)
+
+    @classmethod
+    def get_digest_pending(cls) -> list:
+        """Return list of ISO timestamps queued for digest email."""
+        raw = cls.get("backup_digest_pending", "")
+        return [ts for ts in raw.split("\n") if ts.strip()] if raw else []
+
+    @classmethod
+    def add_digest_pending(cls, iso_ts: str) -> None:
+        """Append a timestamp to the digest pending list."""
+        existing = cls.get("backup_digest_pending", "") or ""
+        entries = [ts for ts in existing.split("\n") if ts.strip()]
+        entries.append(iso_ts)
+        cls.set("backup_digest_pending", "\n".join(entries))
+
+    @classmethod
+    def clear_digest_pending(cls) -> None:
+        """Clear the digest pending list."""
+        cls.set("backup_digest_pending", "")
+
+    @classmethod
     def save_backup_config(
         cls,
         host: str,

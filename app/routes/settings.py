@@ -42,6 +42,7 @@ def index():
     backup_configured = backup_service.is_configured()
     smtp_config = Settings.get_smtp_config()
     smtp_configured = email_service.is_configured()
+    notify_config = Settings.get_backup_notify_config()
 
     return render_template(
         "settings/index.html",
@@ -52,6 +53,7 @@ def index():
         backup_configured=backup_configured,
         smtp_config=smtp_config,
         smtp_configured=smtp_configured,
+        notify_config=notify_config,
     )
 
 
@@ -84,6 +86,17 @@ def save_backup_config():
         schedule = ""
     Settings.set("backup_schedule", schedule)
     scheduler_service.apply_schedule(current_app._get_current_object())
+
+    notify_email = request.form.get("backup_notify_email", "").strip()
+    notify_success = request.form.get("backup_notify_success", "")
+    if notify_success not in ("", "each", "daily", "weekly"):
+        notify_success = ""
+    notify_failure = "true" if request.form.get("backup_notify_failure") else "false"
+    Settings.save_backup_notify_config(
+        notify_email=notify_email,
+        notify_success=notify_success,
+        notify_failure=notify_failure,
+    )
 
     flash("Backup configuration saved", "success")
     return redirect(url_for("settings.index"))

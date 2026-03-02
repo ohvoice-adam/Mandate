@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 
 _scheduler = BackgroundScheduler(timezone="UTC")
 _JOB_ID = "scheduled_backup"
+_DIGEST_DAILY_JOB_ID = "backup_digest_daily"
+_DIGEST_WEEKLY_JOB_ID = "backup_digest_weekly"
 
 
 def init_app(app) -> None:
@@ -16,6 +18,24 @@ def init_app(app) -> None:
     if not _scheduler.running:
         _scheduler.start()
     apply_schedule(app)
+    _scheduler.add_job(
+        _run_digest,
+        trigger=CronTrigger(hour=8, minute=0),
+        id=_DIGEST_DAILY_JOB_ID,
+        args=[app, "daily"],
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    _scheduler.add_job(
+        _run_digest,
+        trigger=CronTrigger(day_of_week="sun", hour=8, minute=0),
+        id=_DIGEST_WEEKLY_JOB_ID,
+        args=[app, "weekly"],
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
 
 
 def apply_schedule(app) -> None:
@@ -59,3 +79,27 @@ def _run_scheduled_backup(app) -> None:
         run_backup_sync(app)
     except Exception:
         logger.exception("Scheduled backup failed")
+
+
+def _run_digest(app, frequency: str) -> None:
+    """Send a digest email if the notify_success setting matches *frequency*."""
+    with app.app_context():
+        from app.models import Settings
+        from app.services import email as email_service
+
+        if Settings.get("backup_notify_success", "") != frequency:
+            return
+
+        notify_email = Settings.get("backup_notify_email", "").strip()
+        if not notify_email or not email_service.is_configured():
+            return
+
+        entries = Settings.get_digest_pending()
+        if not entries:
+            return
+
+        try:
+            email_service.send_backup_digest_email(notify_email, entries)
+            Settings.clear_digest_pending()
+        except Exception:
+            logger.exception("Digest email failed (%s)", frequency)

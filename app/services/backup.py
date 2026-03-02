@@ -101,16 +101,45 @@ def _backup_thread(app) -> None:
             dump_file = _create_pg_dump(db_url, server_major)
             _sftp_upload(dump_file, scp_config, schedule=schedule)
             Settings.set("backup_last_status", "success")
+            try:
+                _send_backup_notification(success=True, error_msg=None)
+            except Exception:
+                logger.exception("Backup notification failed (backup itself succeeded)")
         except Exception as exc:
             logger.exception("Backup failed")
             # Truncate long error messages to fit in the settings value column
             Settings.set("backup_last_status", f"error:{str(exc)[:300]}")
+            try:
+                _send_backup_notification(success=False, error_msg=str(exc)[:300])
+            except Exception:
+                logger.exception("Backup notification failed (backup also failed)")
         finally:
             if dump_file and os.path.exists(dump_file):
                 try:
                     os.unlink(dump_file)
                 except OSError:
                     pass
+
+
+def _send_backup_notification(success: bool, error_msg: str | None) -> None:
+    """Send an email notification for a backup success or failure."""
+    from app.models import Settings
+    from app.services import email as email_service
+
+    notify_email = Settings.get("backup_notify_email", "").strip()
+    if not notify_email or not email_service.is_configured():
+        return
+
+    backup_time = Settings.get("backup_last_run", "")
+    if success:
+        mode = Settings.get("backup_notify_success", "")
+        if mode == "each":
+            email_service.send_backup_success_email(notify_email, backup_time)
+        elif mode in ("daily", "weekly"):
+            Settings.add_digest_pending(backup_time)
+    else:
+        if Settings.get("backup_notify_failure", "false") == "true":
+            email_service.send_backup_failure_email(notify_email, error_msg or "", backup_time)
 
 
 def _find_pg_dump(server_major: int | None) -> str:
