@@ -1,4 +1,4 @@
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -42,6 +42,10 @@ def create_app(config_class=Config):
     app.register_blueprint(users_bp, url_prefix="/users")
     app.register_blueprint(organizations_bp, url_prefix="/organizations")
     app.register_blueprint(imports_bp, url_prefix="/imports")
+
+    @app.context_processor
+    def inject_version():
+        return {"app_version": __version__}
 
     @app.before_request
     def enforce_password_change():

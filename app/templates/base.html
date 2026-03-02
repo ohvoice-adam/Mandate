@@ -160,5 +160,9 @@
         <span class="text-white text-xs font-bold tracking-widest uppercase">Development Mode</span>
     </div>
     {% endif %}
+
+    <div class="fixed right-3 {% if config.DEBUG %}bottom-8{% else %}bottom-2{% endif %} z-40 select-none pointer-events-none">
+        <span class="text-xs text-gray-400 dark:text-gray-600 font-mono">v{{ app_version }}</span>
+    </div>
 </body>
 </html>
