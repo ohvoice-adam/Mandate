@@ -8,21 +8,28 @@ import subprocess as _subprocess
 
 
 def _compute_version_label(version: str) -> str:
-    """Return 'v{version}.{n}' when n commits ahead of the tag, else 'v{version}'."""
-    try:
-        out = _subprocess.check_output(
-            ["git", "describe", "--tags", "--long", "--match", "v*"],
-            stderr=_subprocess.DEVNULL,
-            cwd=_os.path.dirname(_os.path.abspath(__file__)),
-        ).decode().strip()
+    """Return 'v{version}.{n}' when n commits ahead of the tag, else 'v{version}'.
+
+    Checks the GIT_DESCRIBE env var first (baked in at Docker build time)
+    before falling back to running git directly.
+    """
+    out = _os.environ.get("GIT_DESCRIBE", "").strip()
+    if not out:
+        try:
+            out = _subprocess.check_output(
+                ["git", "describe", "--tags", "--long", "--match", "v*"],
+                stderr=_subprocess.DEVNULL,
+                cwd=_os.path.dirname(_os.path.abspath(__file__)),
+            ).decode().strip()
+        except Exception:
+            pass
+    if out:
         # Output format: v0.1.2-5-gabcdef7
         parts = out.rsplit("-", 2)
         if len(parts) == 3:
             n = int(parts[1])
             if n > 0:
                 return f"v{version}.{n}"
-    except Exception:
-        pass
     return f"v{version}"
 
 
