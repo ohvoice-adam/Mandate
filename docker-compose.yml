@@ -15,10 +15,7 @@ services:
       retries: 10
 
   web:
-    build:
-      context: .
-      args:
-        GIT_DESCRIBE: ${GIT_DESCRIBE:-}
+    build: .
     restart: unless-stopped
     depends_on:
       db:
