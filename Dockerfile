@@ -16,6 +16,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Bake the git describe string in at build time so the version label
+# works correctly even though .git is excluded from the build context.
+ARG GIT_DESCRIBE
+ENV GIT_DESCRIBE=${GIT_DESCRIBE}
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

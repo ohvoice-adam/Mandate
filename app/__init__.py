@@ -8,19 +8,26 @@ import subprocess as _subprocess
 
 
 def _compute_version_label(version: str) -> str:
-    """Return 'v{version}' on a tagged release, or 'build {hash}' when ahead."""
-    try:
-        out = _subprocess.check_output(
-            ["git", "describe", "--tags", "--long", "--match", "v*"],
-            stderr=_subprocess.DEVNULL,
-            cwd=_os.path.dirname(_os.path.abspath(__file__)),
-        ).decode().strip()
+    """Return 'v{version}' on a tagged release, or 'build {hash}' when ahead.
+
+    Reads GIT_DESCRIBE from the environment first (set at Docker build time)
+    so the label works correctly even when .git is absent at runtime.
+    """
+    out = _os.environ.get("GIT_DESCRIBE", "").strip()
+    if not out:
+        try:
+            out = _subprocess.check_output(
+                ["git", "describe", "--tags", "--long", "--match", "v*"],
+                stderr=_subprocess.DEVNULL,
+                cwd=_os.path.dirname(_os.path.abspath(__file__)),
+            ).decode().strip()
+        except Exception:
+            pass
+    if out:
         # Output format: v0.1.2-3-gabcdef7
         parts = out.rsplit("-", 2)
         if len(parts) == 3 and int(parts[1]) > 0:
             return f"build {parts[2].lstrip('g')}"
-    except Exception:
-        pass
     return f"v{version}"
 
 
