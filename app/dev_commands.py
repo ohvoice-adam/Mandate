@@ -115,9 +115,9 @@ def _raddr():
 # ---------------------------------------------------------------------------
 
 @dev_cli.command("seed")
-@click.option("--voters", default=200, show_default=True,
+@click.option("--voters", default=500, show_default=True,
               help="Number of fake voters to create.")
-@click.option("--books", default=10, show_default=True,
+@click.option("--books", default=25, show_default=True,
               help="Number of petition books to create.")
 def seed(voters, books):
     """Generate dummy organizations, collectors, voters, books, and signatures."""

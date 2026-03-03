@@ -297,6 +297,41 @@ flask db migrate   # Generate migration
 flask db upgrade   # Apply migration
 ```
 
+### Dummy Data
+
+When running with `FLASK_DEBUG=1`, two CLI commands are available to populate and clear development data without needing a real voter file.
+
+**Generate dummy data:**
+
+```bash
+flask dev seed
+```
+
+Creates:
+- 2 organizations
+- 6 collectors (linked to organizations)
+- 2 dev users (`organizer@dev.example` / `enterer@dev.example`, password: `devpassword`)
+- 500 fake Columbus-area voters (identified by `SEED-` prefix on their voter ID)
+- 25 petition books with 1–2 batches each and roughly 250 signatures (~72% matched)
+
+Options:
+
+```bash
+flask dev seed --voters 1000 --books 50   # custom counts
+```
+
+**Wipe dummy data:**
+
+```bash
+flask dev wipe
+```
+
+Removes all signatures, books, batches, collectors, organizations, non-admin users, and `SEED-` prefixed voters. Admin users and application settings are preserved. If a real voter file has been imported, those records are also left untouched — only `SEED-` voters are deleted.
+
+```bash
+flask dev wipe --yes   # skip confirmation prompt
+```
+
 ## Production Deployment
 
 ### Gunicorn
