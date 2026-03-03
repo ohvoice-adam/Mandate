@@ -3,6 +3,31 @@ __version__ = "0.1.2"
 DEFAULT_PRIMARY = "#0c3e6b"
 DEFAULT_ACCENT = "#f56708"
 
+import os as _os
+import subprocess as _subprocess
+
+
+def _compute_version_label(version: str) -> str:
+    """Return 'v{version}.{n}' when n commits ahead of the tag, else 'v{version}'."""
+    try:
+        out = _subprocess.check_output(
+            ["git", "describe", "--tags", "--long", "--match", "v*"],
+            stderr=_subprocess.DEVNULL,
+            cwd=_os.path.dirname(_os.path.abspath(__file__)),
+        ).decode().strip()
+        # Output format: v0.1.2-5-gabcdef7
+        parts = out.rsplit("-", 2)
+        if len(parts) == 3:
+            n = int(parts[1])
+            if n > 0:
+                return f"v{version}.{n}"
+    except Exception:
+        pass
+    return f"v{version}"
+
+
+_version_label = _compute_version_label(__version__)
+
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
@@ -66,7 +91,7 @@ def create_app(config_class=Config):
                 "accent_color": "",
             }
             palette = build_palette(DEFAULT_PRIMARY, DEFAULT_ACCENT)
-        return {"app_version": __version__, "branding": cfg, "branding_palette": palette}
+        return {"app_version": _version_label, "branding": cfg, "branding_palette": palette}
 
     @app.before_request
     def enforce_password_change():
