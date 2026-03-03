@@ -12,6 +12,10 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+# Stable bigint used as a PostgreSQL advisory lock key to prevent concurrent
+# backup runs across multiple Gunicorn workers.  Value is ASCII "MAND".
+_ADVISORY_LOCK_KEY = 0x4D414E44
+
 # All tables to include in backup — excludes voters and voters_backup_* tables
 BACKUP_TABLES = [
     "users",
@@ -349,15 +353,35 @@ def test_sftp_connection(scp_config: dict, password: str | None = None) -> tuple
 def run_backup_sync(app) -> None:
     """Run a full backup synchronously (for use by the scheduler)."""
     with app.app_context():
+        from app import db
         from app.models import Settings
+        from sqlalchemy import text
 
         if not is_configured():
             logger.warning("Scheduled backup skipped: not configured.")
             return
+
+        # Acquire a transaction-level PostgreSQL advisory lock so that only
+        # one Gunicorn worker proceeds even when multiple workers all fire the
+        # scheduled job at the same time.  The lock is released automatically
+        # when the transaction commits (inside Settings.set below).
+        locked = db.session.execute(
+            text("SELECT pg_try_advisory_xact_lock(:key)"),
+            {"key": _ADVISORY_LOCK_KEY},
+        ).scalar()
+        if not locked:
+            logger.info(
+                "Scheduled backup skipped: another worker holds the advisory lock."
+            )
+            return
+
         if Settings.get("backup_last_status") == "running":
             logger.warning("Scheduled backup skipped: already running.")
             return
+
         Settings.set("backup_last_status", "running")
+        # ↑ commits the transaction, which releases the advisory lock.
+        # Any worker that now acquires the lock will see status="running" and skip.
         Settings.set("backup_last_run", datetime.now().isoformat())
 
     _backup_thread(app)
