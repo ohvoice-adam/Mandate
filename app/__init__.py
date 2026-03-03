@@ -103,4 +103,8 @@ def create_app(config_class=Config):
     except Exception:
         pass
 
+    # Register dev CLI commands (flask dev seed / flask dev wipe).
+    from app.dev_commands import dev_cli
+    app.cli.add_command(dev_cli)
+
     return app
