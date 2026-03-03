@@ -36,6 +36,7 @@
                     hx-post="{{ url_for('signatures.record_no_match') }}"
                     hx-target="#search-results"
                     hx-swap="innerHTML"
+                    hx-confirm="Record a No Match? This signature will not appear in the matched CSV."
                     class="bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-6 rounded-md">
                 No Match
             </button>

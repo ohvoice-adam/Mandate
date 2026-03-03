@@ -18,10 +18,5 @@
     const input = document.getElementById('address-search');
     input.value = '';
     input.focus();
-    // Clear results after brief delay to show confirmation
-    setTimeout(function() {
-        document.getElementById('search-results').innerHTML =
-            '<div class="text-center text-gray-500 dark:text-gray-400 py-12">Enter an address to search for matching voters</div>';
-    }, 800);
 })();
 </script>
