@@ -197,6 +197,17 @@ def branding_logo():
     return Response(data, mimetype=mime)
 
 
+@bp.route("/clear-logo", methods=["POST"])
+@login_required
+@admin_required
+def clear_logo():
+    """Remove the stored org logo."""
+    Settings.set("branding_logo_content", "")
+    Settings.set("branding_logo_mime", "")
+    flash("Logo removed", "success")
+    return redirect(url_for("settings.index"))
+
+
 @bp.route("/save-branding-config", methods=["POST"])
 @login_required
 @admin_required
