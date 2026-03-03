@@ -16,11 +16,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Bake git describe output at build time so the version label works
-# without .git being present at runtime.
-ARG GIT_DESCRIBE
-ENV GIT_DESCRIBE=${GIT_DESCRIBE}
-
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
