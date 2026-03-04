@@ -117,7 +117,7 @@
 
     <!-- Progress bar -->
     <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
-        <h2 class="text-xl font-semibold mb-4">Overall Progress</h2>
+        <h2 class="text-xl font-semibold mb-4">Validity Breakdown</h2>
         <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-6 overflow-hidden">
             {% set verified_pct = progress.percent_verified|float %}
             {% set address_pct = ((progress.address_only_target + progress.address_only_other) * 100 / progress.entered)|float if progress.entered else 0 %}
