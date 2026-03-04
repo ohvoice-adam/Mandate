@@ -410,7 +410,7 @@ def _apply_retention(sftp, remote_dir: str, schedule: str) -> None:
 
     Retention rules
     ───────────────
-    hourly : last 12 hourlies  +  last 7 daily (02:00) slots
+    hourly : last 24 hourlies  +  last 7 daily (02:00) slots
                                +  last 4 weekly (Sun 02:00) slots
     daily  : last 7 dailies    +  last 4 weekly (Sun 02:00) slots
     weekly : last 4 weeklies
@@ -433,8 +433,8 @@ def _apply_retention(sftp, remote_dir: str, schedule: str) -> None:
     keep: set[str] = set()
 
     if schedule == "hourly":
-        # Last 12 hourlies (any time)
-        for _, name in backups[:12]:
+        # Last 24 hourlies (any time)
+        for _, name in backups[:24]:
             keep.add(name)
         # Last 7 daily slots (02:00 UTC, any weekday)
         dailies = [(dt, n) for dt, n in backups if dt.hour == 2 and dt.minute == 0]
