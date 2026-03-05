@@ -57,7 +57,15 @@ def export_matched_csv():
             c.first_name  AS collector_first,
             c.last_name   AS collector_last,
             s.created_at
-        FROM signatures s
+        FROM (
+            -- Mirror the stats deduplication: one row per (sos_voterid, batch_id),
+            -- preferring matched=TRUE then lowest id, so the CSV row count matches
+            -- the stats page totals.
+            SELECT DISTINCT ON (sos_voterid, batch_id) *
+            FROM signatures
+            WHERE sos_voterid IS NOT NULL AND sos_voterid <> ''
+            ORDER BY sos_voterid, batch_id, matched DESC, id
+        ) s
         LEFT JOIN voters     v ON v.sos_voterid = s.sos_voterid
         LEFT JOIN books      b ON b.id = s.book_id
         LEFT JOIN collectors c ON c.id = b.collector_id
