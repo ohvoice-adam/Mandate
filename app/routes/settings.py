@@ -34,11 +34,15 @@ def index():
                 flash("Signature goal must be a number", "error")
                 return redirect(url_for("settings.index"))
 
+        allow_pdf_deletion = "true" if request.form.get("allow_pdf_deletion") else "false"
+        Settings.set("allow_pdf_deletion", allow_pdf_deletion)
+
         flash("Settings saved", "success")
         return redirect(url_for("settings.index"))
 
     current_city = Settings.get_target_city()
     signature_goal = Settings.get_signature_goal()
+    allow_pdf_deletion = Settings.get("allow_pdf_deletion", "false") == "true"
     cities = get_distinct_cities()
     backup_config = Settings.get_backup_config()
     backup_configured = backup_service.is_configured()
@@ -52,6 +56,7 @@ def index():
         current_city=current_city,
         cities=cities,
         signature_goal=signature_goal,
+        allow_pdf_deletion=allow_pdf_deletion,
         backup_config=backup_config,
         backup_configured=backup_configured,
         smtp_config=smtp_config,

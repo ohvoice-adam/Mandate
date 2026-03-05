@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Delete Print Job — {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto mt-12">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-8">
+        <div class="flex items-center gap-3 mb-6">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
+                <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                </svg>
+            </div>
+            <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Delete Print Job?</h1>
+        </div>
+
+        <p class="text-gray-700 dark:text-gray-300 mb-4">
+            This will permanently delete the following generated PDF and cannot be undone:
+        </p>
+
+        <div class="bg-gray-50 dark:bg-gray-700 rounded-md p-4 mb-6 text-sm space-y-1">
+            <div class="font-mono text-gray-800 dark:text-gray-200">{{ job.filename }}</div>
+            <div class="text-gray-500 dark:text-gray-400">
+                Serials #{{ "%05d"|format(job.start_number) }}–#{{ "%05d"|format(job.end_number) }}
+                &nbsp;·&nbsp; {{ job.book_count }} book{{ 's' if job.book_count != 1 else '' }}
+                &nbsp;·&nbsp; {{ job.page_count }} pages
+            </div>
+            <div class="text-gray-500 dark:text-gray-400">
+                Generated {{ job.created_at.strftime("%Y-%m-%d %H:%M") }}
+                {% if job.generated_by %} by {{ job.generated_by.full_name }}{% endif %}
+            </div>
+        </div>
+
+        <div class="flex gap-3">
+            <form method="POST" action="{{ url_for('prints.delete', job_id=job.id) }}">
+                <button type="submit"
+                        class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-5 rounded">
+                    Delete permanently
+                </button>
+            </form>
+            <a href="{{ url_for('prints.index') }}"
+               class="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600
+                      text-gray-800 dark:text-gray-200 font-semibold py-2 px-5 rounded">
+                Cancel
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

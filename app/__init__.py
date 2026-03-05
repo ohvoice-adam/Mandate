@@ -1,4 +1,4 @@
-__version__ = "0.1.4"
+__version__ = "0.2.0"
 
 DEFAULT_PRIMARY = "#0c3e6b"
 DEFAULT_ACCENT = "#f56708"
@@ -35,6 +35,8 @@ def create_app(config_class=Config):
     from app.routes.users import bp as users_bp
     from app.routes.organizations import bp as organizations_bp
     from app.routes.imports import bp as imports_bp
+    from app.routes.prints import bp as prints_bp
+    from app.routes.help import bp as help_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(signatures_bp, url_prefix="/signatures")
@@ -45,6 +47,8 @@ def create_app(config_class=Config):
     app.register_blueprint(users_bp, url_prefix="/users")
     app.register_blueprint(organizations_bp, url_prefix="/organizations")
     app.register_blueprint(imports_bp, url_prefix="/imports")
+    app.register_blueprint(prints_bp, url_prefix="/prints")
+    app.register_blueprint(help_bp, url_prefix="/help")
 
     @app.context_processor
     def inject_globals():
@@ -83,7 +87,7 @@ def create_app(config_class=Config):
 
     # Runtime startup tasks (run after migrations have been applied)
     with app.app_context():
-        from app.models import User, Voter, Signature, Book, Batch, Collector, DataEnterer, Settings, VoterImport
+        from app.models import User, Voter, Signature, Book, Batch, Collector, DataEnterer, Settings, VoterImport, PetitionPrintJob
 
         # Recover imports left in running/pending state from a previous crash.
         # Wrapped in try/except because this runs during `flask db upgrade`

@@ -15,6 +15,7 @@ gunicorn>=21.0.0
 paramiko>=3.0.0
 APScheduler>=3.10.0
 colorthief>=0.2.1
+PyMuPDF>=1.23.0
 
 # Development
 pytest>=8.0.0

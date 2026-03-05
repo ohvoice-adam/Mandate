@@ -28,6 +28,7 @@ BACKUP_TABLES = [
     "paid_collectors",
     "settings",
     "voter_imports",
+    "petition_print_jobs",
 ]
 
 

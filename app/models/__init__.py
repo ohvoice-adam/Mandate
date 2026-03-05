@@ -6,6 +6,7 @@ from app.models.batch import Batch
 from app.models.collector import Collector, DataEnterer, Organization, PaidCollector
 from app.models.settings import Settings
 from app.models.voter_import import VoterImport, ImportStatus
+from app.models.print_job import PetitionPrintJob
 
 __all__ = [
     "User",
@@ -23,4 +24,5 @@ __all__ = [
     "Settings",
     "VoterImport",
     "ImportStatus",
+    "PetitionPrintJob",
 ]

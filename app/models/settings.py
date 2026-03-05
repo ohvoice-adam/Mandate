@@ -14,7 +14,7 @@ class Settings(db.Model):
     @classmethod
     def get(cls, key: str, default: str = None) -> str:
         """Get a setting value by key."""
-        setting = cls.query.filter_by(key=key).first()
+        setting = cls.query.filter_by(key=key).populate_existing().first()
         return setting.value if setting else default
 
     @classmethod

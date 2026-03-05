@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}Print Books — {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Print Books</h1>
+
+    <!-- Card 1: Template PDFs -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Template PDFs</h2>
+        <form method="POST" action="{{ url_for('prints.save_templates') }}" enctype="multipart/form-data" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Cover PDF -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Cover Sheet PDF
+                    </label>
+                    {% if template_config.has_cover %}
+                    <p class="text-sm text-green-600 dark:text-green-400 mb-2 flex items-center gap-1">
+                        <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                        {{ template_config.cover_name }}
+                    </p>
+                    {% endif %}
+                    <input type="file" name="cover_pdf" accept=".pdf"
+                           class="block w-full text-sm text-gray-500 dark:text-gray-400
+                                  file:mr-4 file:py-2 file:px-4 file:rounded file:border-0
+                                  file:text-sm file:font-semibold
+                                  file:bg-navy-50 file:text-navy-700
+                                  hover:file:bg-navy-100">
+                </div>
+
+                <!-- Petition PDF -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Petition Page PDF
+                    </label>
+                    {% if template_config.has_petition %}
+                    <p class="text-sm text-green-600 dark:text-green-400 mb-2 flex items-center gap-1">
+                        <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                        {{ template_config.petition_name }}
+                    </p>
+                    {% endif %}
+                    <input type="file" name="petition_pdf" accept=".pdf"
+                           class="block w-full text-sm text-gray-500 dark:text-gray-400
+                                  file:mr-4 file:py-2 file:px-4 file:rounded file:border-0
+                                  file:text-sm file:font-semibold
+                                  file:bg-navy-50 file:text-navy-700
+                                  hover:file:bg-navy-100">
+                    <p class="mt-1 text-xs text-yellow-600 dark:text-yellow-400">
+                        Use the official timestamped/certified version of the petition page.
+                    </p>
+                </div>
+            </div>
+
+            <div>
+                <button type="submit"
+                        class="bg-navy-600 hover:bg-navy-700 text-white font-semibold py-2 px-4 rounded">
+                    Save Templates
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Card 2: Generate Petition Books -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Generate Petition Books</h2>
+
+        {% if not template_config.has_cover or not template_config.has_petition %}
+        <div class="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-md text-yellow-800 dark:text-yellow-300 text-sm">
+            {% if not template_config.has_cover and not template_config.has_petition %}
+                Both cover and petition templates must be uploaded before generating books.
+            {% elif not template_config.has_cover %}
+                Cover sheet template must be uploaded before generating books.
+            {% else %}
+                Petition page template must be uploaded before generating books.
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('prints.generate') }}" class="space-y-4">
+            <div class="grid grid-cols-2 gap-4 max-w-sm">
+                <div>
+                    <label for="start_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Start Number
+                    </label>
+                    <input type="number" id="start_number" name="start_number"
+                           value="{{ next_start }}" min="1"
+                           class="block w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy-500"
+                           {% if not template_config.has_cover or not template_config.has_petition %}disabled{% endif %}>
+                </div>
+                <div>
+                    <label for="end_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        End Number
+                    </label>
+                    <input type="number" id="end_number" name="end_number"
+                           value="{{ next_start }}" min="1"
+                           class="block w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy-500"
+                           {% if not template_config.has_cover or not template_config.has_petition %}disabled{% endif %}>
+                </div>
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Maximum 500 books per generation run.</p>
+
+            <div>
+                <button type="submit"
+                        {% if not template_config.has_cover or not template_config.has_petition %}disabled{% endif %}
+                        class="bg-accent-600 hover:bg-accent-700 text-white font-semibold py-2 px-4 rounded
+                               disabled:opacity-50 disabled:cursor-not-allowed">
+                    Generate PDF
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Card 3: Generated PDFs -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Generated PDFs</h2>
+
+        {% if jobs %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                <thead>
+                    <tr class="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        <th class="pb-3 pr-4">Filename</th>
+                        <th class="pb-3 pr-4">Serials</th>
+                        <th class="pb-3 pr-4">Books</th>
+                        <th class="pb-3 pr-4">Pages</th>
+                        <th class="pb-3 pr-4">Generated</th>
+                        <th class="pb-3 pr-4">By</th>
+                        <th class="pb-3"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% for job in jobs %}
+                    <tr class="text-gray-700 dark:text-gray-300">
+                        <td class="py-2 pr-4 font-mono text-xs">{{ job.filename }}</td>
+                        <td class="py-2 pr-4 font-mono">#{{ "%05d"|format(job.start_number) }}–#{{ "%05d"|format(job.end_number) }}</td>
+                        <td class="py-2 pr-4">{{ job.book_count }}</td>
+                        <td class="py-2 pr-4">{{ job.page_count }}</td>
+                        <td class="py-2 pr-4">{{ job.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+                        <td class="py-2 pr-4">{{ job.generated_by.full_name if job.generated_by else "—" }}</td>
+                        <td class="py-2">
+                            <div class="flex items-center gap-3">
+                                <a href="{{ url_for('prints.download', job_id=job.id) }}"
+                                   class="text-navy-600 dark:text-navy-400 hover:underline font-medium">
+                                    Download
+                                </a>
+                                {% if allow_pdf_deletion %}
+                                <a href="{{ url_for('prints.delete_confirm', job_id=job.id) }}"
+                                   class="text-red-600 dark:text-red-400 hover:underline font-medium">
+                                    Delete
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-gray-500 dark:text-gray-400 text-sm">No petition books have been generated yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+
+{% block title %}Help — {{ super() }}{% endblock %}
+
+{% block content %}
+{# ── Macros ─────────────────────────────────────────────────────────── #}
+{% macro badge(text, color="gray") %}
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+  {% if color == 'red' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300
+  {% elif color == 'blue' %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300
+  {% elif color == 'yellow' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300
+  {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300{% endif %}">{{ text }}</span>
+{% endmacro %}
+
+{% macro section(id, title) %}
+<section id="{{ id }}" class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 scroll-mt-6">
+  <h2 class="text-xl font-semibold text-navy-700 dark:text-navy-300 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">{{ title }}</h2>
+  {{ caller() }}
+</section>
+{% endmacro %}
+
+{% macro h3(text) %}<h3 class="text-base font-semibold text-gray-900 dark:text-gray-100 mt-5 mb-2">{{ text }}</h3>{% endmacro %}
+{% macro p(text) %}<p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mb-3">{{ text }}</p>{% endmacro %}
+{% macro tip(text) %}
+<div class="flex gap-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-3 mb-3 text-sm text-blue-800 dark:text-blue-200">
+  <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+  <span>{{ text }}</span>
+</div>
+{% endmacro %}
+{% macro warn(text) %}
+<div class="flex gap-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-3 mb-3 text-sm text-yellow-800 dark:text-yellow-200">
+  <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+  <span>{{ text }}</span>
+</div>
+{% endmacro %}
+
+<div class="flex gap-6 items-start">
+
+  {# ── Table of Contents ──────────────────────────────────────────────── #}
+  <aside class="hidden lg:block w-56 flex-shrink-0 sticky top-6">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 text-sm">
+      <p class="font-semibold text-gray-900 dark:text-gray-100 mb-3">On this page</p>
+      <nav class="space-y-1">
+        {% set toc = [
+          ('#overview',    'Overview'),
+          ('#home',        'Home & Sessions'),
+          ('#signatures',  'Signature Entry'),
+          ('#collectors',  'Collectors'),
+          ('#stats',       'Statistics'),
+        ] %}
+        {% if current_user.is_admin_or_organizer %}
+          {% set toc = toc + [
+            ('#users',         'Users'),
+            ('#organizations', 'Organizations'),
+          ] %}
+        {% endif %}
+        {% if current_user.is_admin %}
+          {% set toc = toc + [
+            ('#imports',  'Voter Imports'),
+            ('#prints',   'Print Books'),
+            ('#settings', 'Settings'),
+          ] %}
+        {% endif %}
+        {% for href, label in toc %}
+        <a href="{{ href }}"
+           class="block px-2 py-1 rounded text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100">
+          {{ label }}
+        </a>
+        {% endfor %}
+      </nav>
+    </div>
+  </aside>
+
+  {# ── Main Content ───────────────────────────────────────────────────── #}
+  <div class="flex-1 min-w-0 space-y-6">
+
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Help &amp; Documentation</h1>
+
+    {# ── Overview ── #}
+    {% call section('overview', 'Overview') %}
+      {{ p('Mandate is a petition signature management system. It helps your team verify that petition signatures belong to registered voters in your target city, track progress toward your signature goal, and generate numbered petition books for collectors.') }}
+
+      {{ h3('Roles') }}
+      <div class="overflow-x-auto mb-3">
+        <table class="w-full text-sm text-left border-collapse">
+          <thead>
+            <tr class="border-b border-gray-200 dark:border-gray-700">
+              <th class="py-2 pr-4 font-semibold text-gray-700 dark:text-gray-300">Role</th>
+              <th class="py-2 pr-4 font-semibold text-gray-700 dark:text-gray-300">Access</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 dark:divide-gray-700 text-gray-700 dark:text-gray-300">
+            <tr>
+              <td class="py-2 pr-4 font-medium">Enterer</td>
+              <td class="py-2">Home, Signature Entry, Collectors, Stats</td>
+            </tr>
+            <tr>
+              <td class="py-2 pr-4 font-medium">Organizer</td>
+              <td class="py-2">Everything above, plus Users and Organizations</td>
+            </tr>
+            <tr>
+              <td class="py-2 pr-4 font-medium">Admin</td>
+              <td class="py-2">Full access, including Settings, Voter Imports, and Print Books</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {{ h3('Core Workflow') }}
+      <ol class="list-decimal list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li>An admin uploads the voter file (registered voters in your jurisdiction).</li>
+        <li>An admin generates numbered petition books and distributes them to collectors.</li>
+        <li>Collectors gather signatures in the field.</li>
+        <li>Enterers log in, start a session (select collector + book number), and enter each signature.</li>
+        <li>For each signature, the enterer searches for the signer's address and records whether it matches a voter record.</li>
+        <li>Stats pages show real-time progress toward the signature goal.</li>
+      </ol>
+    {% endcall %}
+
+    {# ── Home & Sessions ── #}
+    {% call section('home', 'Home & Sessions') %}
+      {{ p('The Home page is your starting point for a data-entry shift. Before you can enter signatures, you must start a session that identifies which collector\'s book you are working on.') }}
+
+      {{ h3('Starting a Session') }}
+      <ol class="list-decimal list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li>On the Home page, select the <strong>collector</strong> whose book you are entering from the dropdown.</li>
+        <li>Enter the <strong>book number</strong> (the serial number printed on the petition book).</li>
+        <li>Click <strong>Start Session</strong>.</li>
+      </ol>
+      {{ tip('If the book number has already been used, the system will show you which collector it was previously assigned to. You can still start a session on it.') }}
+
+      {{ h3('During a Session') }}
+      {{ p('Once a session is active, your current collector and book number are shown at the top of the Home page. Navigate to Signature Entry to begin entering signatures.') }}
+
+      {{ h3('Ending a Session') }}
+      {{ p('Click End Session on the Home page when you have finished entering all signatures from a book. You can then start a new session for a different book.') }}
+      {{ warn('Ending a session does not delete any entered signatures — it only clears the active book context so you can start a new one.') }}
+    {% endcall %}
+
+    {# ── Signature Entry ── #}
+    {% call section('signatures', 'Signature Entry') %}
+      {{ p('The Signature Entry page is where you verify each signature against the voter file. You must have an active session before you can enter signatures.') }}
+
+      {{ h3('Searching for a Voter') }}
+      <ol class="list-decimal list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li>Type the signer's street address into the search box (e.g., <span class="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded">123 Main St</span>).</li>
+        <li>Results appear automatically after three or more characters — no need to press Enter.</li>
+        <li>Each result shows a registered voter's name, full address, and city.</li>
+      </ol>
+      {{ tip('Search by street number and street name only. You do not need to include apartment number, city, or zip code, though adding them can help narrow results.') }}
+
+      {{ h3('Match Types') }}
+      <p class="text-sm text-gray-700 dark:text-gray-300 mb-2">After finding a result (or determining there is none), record one of three outcomes:</p>
+      <div class="space-y-3 mb-4">
+        <div class="border border-green-200 dark:border-green-800 rounded-md p-3 bg-green-50 dark:bg-green-900/20">
+          <p class="font-semibold text-green-800 dark:text-green-300 text-sm mb-1">Person Match</p>
+          <p class="text-sm text-green-700 dark:text-green-400">The signer's name <em>and</em> address both match a voter record. This is a fully verified signature — it counts toward your goal.</p>
+        </div>
+        <div class="border border-yellow-200 dark:border-yellow-800 rounded-md p-3 bg-yellow-50 dark:bg-yellow-900/20">
+          <p class="font-semibold text-yellow-800 dark:text-yellow-300 text-sm mb-1">Address Only</p>
+          <p class="text-sm text-yellow-700 dark:text-yellow-400">The address matches a voter record, but the name on the petition is different from the registered voter at that address. Record this when the address is valid but the name doesn't line up — it may still be reviewed later.</p>
+        </div>
+        <div class="border border-red-200 dark:border-red-800 rounded-md p-3 bg-red-50 dark:bg-red-900/20">
+          <p class="font-semibold text-red-800 dark:text-red-300 text-sm mb-1">No Match</p>
+          <p class="text-sm text-red-700 dark:text-red-400">No voter is registered at the given address, or the address does not appear in the voter file at all. Record this so the signature is tracked even if it cannot be verified.</p>
+        </div>
+      </div>
+      {{ p('After recording any match type, the form clears and is ready for the next signature on the same book.') }}
+
+      {{ h3('Tips for Accurate Entry') }}
+      <ul class="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li>Use the address written on the petition — not what you think it should be.</li>
+        <li>If a search returns many results, add more of the address to narrow them down.</li>
+        <li>If someone lives in an apartment building, the street address alone may return the correct voter.</li>
+        <li>Abbreviations like "St", "Ave", "Blvd" generally work as well as full spellings.</li>
+      </ul>
+    {% endcall %}
+
+    {# ── Collectors ── #}
+    {% call section('collectors', 'Collectors') %}
+      {{ p('Collectors are the people who went out into the field and gathered petition signatures. They are distinct from system users — a collector does not need a login to Mandate.') }}
+
+      {{ h3('Creating a Collector') }}
+      <ol class="list-decimal list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li>Go to <strong>Collectors</strong> in the navigation.</li>
+        <li>Click <strong>New Collector</strong>.</li>
+        <li>Enter the collector's name, and optionally their phone, email, and organization.</li>
+        <li>Click <strong>Save</strong>.</li>
+      </ol>
+
+      {{ h3('Editing a Collector') }}
+      {{ p('Click the collector\'s name on the Collectors list to open their edit page. You can update their name, contact info, or organization assignment.') }}
+
+      {{ h3('Data Enterers') }}
+      {{ p('The Collectors page also has an Enterers tab. Data enterers are the internal staff who log into Mandate and enter signatures. Unlike collectors, enterers have user accounts. The Enterers list is informational — to create a new enterer, use the Users page (organizer or admin role required).') }}
+    {% endcall %}
+
+    {# ── Stats ── #}
+    {% call section('stats', 'Statistics') %}
+      {{ p('The Stats section gives you real-time visibility into your campaign\'s progress. All views update immediately as signatures are entered.') }}
+
+      {{ h3('Dashboard (Stats home)') }}
+      <ul class="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li><strong>Progress bar</strong> — verified signatures toward your goal (set in Settings).</li>
+        <li><strong>Total signatures</strong> entered, broken down by match type.</li>
+        <li><strong>Verified count</strong> — signatures with a Person Match from your target city.</li>
+      </ul>
+
+      {{ h3('Enterers') }}
+      {{ p('Shows how many signatures each data enterer has recorded, broken down by match type. Useful for tracking shift productivity.') }}
+
+      {{ h3('Organizations') }}
+      {{ p('Shows signature counts grouped by the organization assigned to each collector. The target-city column shows how many signatures from that organization came from verified city residents.') }}
+
+      {{ h3('Books') }}
+      {{ p('Shows a row for every petition book that has had at least one signature entered. Columns include total entries, match counts, and validity rate. Click any column header to sort.') }}
+
+      {{ h3('CSV Exports') }}
+      <div class="space-y-2 mb-3">
+        <div class="text-sm text-gray-700 dark:text-gray-300">
+          <span class="font-medium">Matched Signatures</span> — downloads a spreadsheet of every Person Match, deduplicated by voter so each registered voter appears at most once per batch. Use this for official reporting.
+        </div>
+        <div class="text-sm text-gray-700 dark:text-gray-300">
+          <span class="font-medium">Duplicates</span> — downloads a list of voters who appear in more than one petition book. Use this to identify and flag potential duplicate signatures before submission.
+        </div>
+      </div>
+    {% endcall %}
+
+    {# ── Users (organizer+) ── #}
+    {% if current_user.is_admin_or_organizer %}
+    {% call section('users', 'Users ' ~ '(Organizer / Admin)') %}
+      {{ p('The Users page lets you manage who can log into Mandate and what they can do.') }}
+
+      {{ h3('Creating a User') }}
+      <ol class="list-decimal list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li>Go to <strong>Users → New User</strong>.</li>
+        <li>Enter the user's name, email address, and a temporary password.</li>
+        <li>Select a role: <strong>Enterer</strong>, <strong>Organizer</strong>, or <strong>Admin</strong>.</li>
+        <li>Optionally assign them to an organization.</li>
+        <li>Click <strong>Create User</strong>.</li>
+      </ol>
+      {{ tip('New users are prompted to change their password on first login.') }}
+
+      {{ h3('Role Restrictions') }}
+      <ul class="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li>Organizers can create and edit Enterer and Organizer accounts, but cannot create or modify Admin accounts.</li>
+        <li>Only Admins can create Admin accounts.</li>
+        <li>You cannot deactivate your own account.</li>
+      </ul>
+
+      {{ h3('Deactivating a User') }}
+      {{ p('Toggle the Active switch on a user\'s row to prevent them from logging in without deleting their history. Deactivated users\' past entries are preserved in the stats.') }}
+    {% endcall %}
+    {% endif %}
+
+    {# ── Organizations (organizer+) ── #}
+    {% if current_user.is_admin_or_organizer %}
+    {% call section('organizations', 'Organizations ' ~ '(Organizer / Admin)') %}
+      {{ p('Organizations represent the groups or community chapters that recruited collectors. Assigning collectors to organizations lets you compare performance across groups in the Stats → Organizations view.') }}
+
+      {{ h3('Creating an Organization') }}
+      <ol class="list-decimal list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li>Go to <strong>Organizations → New Organization</strong>.</li>
+        <li>Enter a name and click <strong>Save</strong>.</li>
+      </ol>
+
+      {{ h3('Deleting an Organization') }}
+      {{ p('An organization can only be deleted if no collectors or users are currently assigned to it. Reassign or remove those associations first.') }}
+    {% endcall %}
+    {% endif %}
+
+    {# ── Admin-only sections ── #}
+    {% if current_user.is_admin %}
+
+    {# ── Voter Imports ── #}
+    {% call section('imports', 'Voter Imports ' ~ '(Admin)') %}
+      {{ p('The Imports page is where you load the official voter file into Mandate. The voter file is the list of registered voters that signatures are checked against.') }}
+
+      {{ h3('Supported File Formats') }}
+      <ul class="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li><strong>CSV / TXT</strong> — a single voter file exported from the Secretary of State or Board of Elections.</li>
+        <li><strong>ZIP</strong> — a zip archive containing one or more CSV/TXT voter files (e.g., one per county). All files inside are imported together.</li>
+      </ul>
+
+      {{ h3('Running an Import') }}
+      <ol class="list-decimal list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li>Go to <strong>Imports</strong>.</li>
+        <li>Click <strong>Choose File</strong> and select your voter file(s).</li>
+        <li>Click <strong>Upload &amp; Import</strong>.</li>
+        <li>Progress updates in real time on the page. Large files may take several minutes.</li>
+      </ol>
+      {{ tip('You can import multiple voter files over time (e.g., add a new county). Existing voter records are not deleted when you import a new file.') }}
+
+      {{ h3('Cancelling an Import') }}
+      {{ p('Click Cancel on a running import to stop it mid-way. Rows already inserted are kept; the import is marked as cancelled.') }}
+
+      {{ h3('Rolling Back an Import') }}
+      {{ p('After a completed import, a Rollback button is available for a limited time. Rolling back removes all voters added by that specific import and restores the database to its prior state. Once you clean up the backup (or it is cleaned up automatically), rollback is no longer possible.') }}
+      {{ warn('Rollback only affects the voters added by that import. Signatures already entered against those voters are not automatically removed.') }}
+
+      {{ h3('Deleting Voters') }}
+      <ul class="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li><strong>Delete County</strong> — removes all voters from a single county. Use this to replace a county's data with a fresh import.</li>
+        <li><strong>Delete All Voters</strong> — removes every voter from the database. This is irreversible. Signatures already entered are preserved but will no longer match any voter records.</li>
+      </ul>
+      {{ warn('Deleting voters cannot be undone. Export any data you need before proceeding.') }}
+    {% endcall %}
+
+    {# ── Print Books ── #}
+    {% call section('prints', 'Print Books ' ~ '(Admin)') %}
+      {{ p('The Print Books page lets you generate numbered petition books as PDFs, ready to hand off to collectors. Each book is stamped with a unique serial number so you can track which collector used which book.') }}
+
+      {{ h3('Step 1: Upload Templates') }}
+      {{ p('Before generating books, upload your two PDF templates:') }}
+      <ul class="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li><strong>Cover Sheet PDF</strong> — the first page of every book (instructions, title page, etc.). Only the first page of the uploaded file is used.</li>
+        <li><strong>Petition Page PDF</strong> — the signature collection page(s). All pages of this file are included in every book.</li>
+      </ul>
+      {{ tip('Use the official, timestamped or certified version of the petition page to ensure legal validity.') }}
+
+      {{ h3('Step 2: Generate Books') }}
+      <ol class="list-decimal list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li>Enter the <strong>Start Number</strong> for this batch. By default this is one more than the highest number already generated.</li>
+        <li>Enter the <strong>End Number</strong>. The range determines how many books are created.</li>
+        <li>Click <strong>Generate PDF</strong>.</li>
+      </ol>
+      {{ warn('You can generate up to 500 books at a time. Each book\'s pages are stamped with its unique serial number in the bottom-left corner.') }}
+
+      {{ h3('Downloading a Generated PDF') }}
+      {{ p('Each generated batch appears in the Generated PDFs table. Click Download to save the PDF. The filename includes the serial range and generation timestamp.') }}
+
+      {{ h3('Deleting a Generated PDF') }}
+      {{ p('If PDF deletion is enabled in Settings, a Delete link appears next to each job. Clicking it shows a confirmation page before permanently removing the record. This cannot be undone.') }}
+
+      {{ h3('Serial Numbers') }}
+      {{ p('Serial numbers are five-digit, zero-padded (e.g., #00001). The system tracks the highest number issued so that consecutive batches never overlap. When you add a new batch, the Start Number field is pre-filled with the next available number.') }}
+    {% endcall %}
+
+    {# ── Settings ── #}
+    {% call section('settings', 'Settings ' ~ '(Admin)') %}
+      {{ p('The Settings page controls application-wide configuration. Changes take effect immediately.') }}
+
+      {{ h3('Application Settings') }}
+      <div class="space-y-3 mb-4 text-sm text-gray-700 dark:text-gray-300">
+        <div>
+          <span class="font-medium">Target City</span> — the city whose registered voters count as "verified" signatures. Signatures from residents of this city are highlighted in stats and counted toward the goal. Select from the cities present in your voter file.
+        </div>
+        <div>
+          <span class="font-medium">Signature Goal</span> — the total number of verified signatures your campaign needs. Displayed as a progress bar on the Stats dashboard.
+        </div>
+        <div>
+          <span class="font-medium">Allow PDF Deletion</span> — when checked, admins can delete generated petition book PDFs from the Print Books page. Leave unchecked to prevent accidental or unauthorised removal of print records.
+        </div>
+      </div>
+
+      {{ h3('Branding') }}
+      <div class="space-y-2 mb-4 text-sm text-gray-700 dark:text-gray-300">
+        <div><span class="font-medium">Mandate only</span> — default appearance; no organisation name shown.</div>
+        <div><span class="font-medium">Dual-branded</span> — shows your organisation name alongside "· Mandate" in the header.</div>
+        <div><span class="font-medium">White-label</span> — shows only your organisation name; Mandate branding is hidden.</div>
+        <div class="mt-2">Upload a logo to have colours extracted automatically and applied to buttons and links throughout the app. You can also set colours manually with the colour pickers.</div>
+      </div>
+
+      {{ h3('Database Backup (SCP/SFTP)') }}
+      {{ p('Configure automatic database backups to a remote server over SFTP. Fields:') }}
+      <ul class="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li><strong>Host / Port / User</strong> — SFTP server connection details.</li>
+        <li><strong>SSH Key</strong> — upload a PEM-format private key for passwordless authentication.</li>
+        <li><strong>Remote Path</strong> — the directory on the server where backups are deposited.</li>
+        <li><strong>Schedule</strong> — hourly, daily, weekly, or disabled.</li>
+      </ul>
+      {{ p('Use Test Connection to verify credentials before saving. Use Run Backup Now to trigger an immediate backup outside the schedule.') }}
+
+      {{ h3('Email (SMTP)') }}
+      {{ p('Configure outgoing email for password-reset emails and backup notifications. Fields:') }}
+      <ul class="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li><strong>Host / Port</strong> — your SMTP server (e.g., smtp.gmail.com / 587).</li>
+        <li><strong>Username / Password</strong> — SMTP authentication credentials.</li>
+        <li><strong>From Address</strong> — the email address that appears in the From field.</li>
+        <li><strong>Use TLS</strong> — recommended for most providers.</li>
+      </ul>
+      {{ p('Use Send Test Email to verify the configuration. The test email is sent to your own account.') }}
+    {% endcall %}
+
+    {% endif %}{# end admin sections #}
+
+  </div>{# end main content #}
+</div>{# end flex #}
+{% endblock %}
