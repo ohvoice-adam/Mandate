@@ -8,6 +8,10 @@ from apscheduler.triggers.cron import CronTrigger
 logger = logging.getLogger(__name__)
 
 _scheduler = BackgroundScheduler(timezone="UTC")
+
+# Advisory lock key for digest sends — prevents all 4 Gunicorn workers from
+# sending the same digest email simultaneously. Value is ASCII "MAND" + 1.
+_DIGEST_LOCK_KEY = 0x4D414E45
 _JOB_ID = "scheduled_backup"
 _DIGEST_DAILY_JOB_ID = "backup_digest_daily"
 _DIGEST_WEEKLY_JOB_ID = "backup_digest_weekly"
@@ -84,14 +88,26 @@ def _run_scheduled_backup(app) -> None:
 def _run_digest(app, frequency: str) -> None:
     """Send a digest email if the notify_success setting matches *frequency*."""
     with app.app_context():
+        from app import db
         from app.models import Settings
         from app.services import email as email_service
+        from sqlalchemy import text
 
         if Settings.get("backup_notify_success", "") != frequency:
             return
 
         notify_email = Settings.get("backup_notify_email", "").strip()
         if not notify_email or not email_service.is_configured():
+            return
+
+        # Acquire a transaction-level advisory lock so only one worker sends
+        # the digest even when all workers fire the job simultaneously.
+        locked = db.session.execute(
+            text("SELECT pg_try_advisory_xact_lock(:key)"),
+            {"key": _DIGEST_LOCK_KEY},
+        ).scalar()
+        if not locked:
+            logger.info("Digest send skipped: another worker holds the advisory lock.")
             return
 
         entries = Settings.get_digest_pending()
@@ -101,5 +117,6 @@ def _run_digest(app, frequency: str) -> None:
         try:
             email_service.send_backup_digest_email(notify_email, entries)
             Settings.clear_digest_pending()
+            # ↑ commits the transaction, releasing the advisory lock.
         except Exception:
             logger.exception("Digest email failed (%s)", frequency)
