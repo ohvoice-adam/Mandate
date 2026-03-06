@@ -206,6 +206,21 @@ class Settings(db.Model):
         cls.set("branding_accent_color", accent_color)
 
     @classmethod
+    def get_branding_fonts(cls) -> dict:
+        """Return the configured headline and body font names."""
+        from app.services.fonts import DEFAULT_HEADLINE_FONT, DEFAULT_BODY_FONT
+        return {
+            "headline_font": cls.get("branding_headline_font", DEFAULT_HEADLINE_FONT),
+            "body_font": cls.get("branding_body_font", DEFAULT_BODY_FONT),
+        }
+
+    @classmethod
+    def save_branding_fonts(cls, headline_font: str, body_font: str) -> None:
+        """Persist font choices."""
+        cls.set("branding_headline_font", headline_font)
+        cls.set("branding_body_font", body_font)
+
+    @classmethod
     def get_logo_bytes(cls) -> bytes | None:
         """Decode and return raw logo bytes, or None."""
         content = cls.get("branding_logo_content")

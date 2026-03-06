@@ -7,6 +7,9 @@
     <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="{{ branding.font_url }}" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -16,6 +19,10 @@
                     colors: {
                         navy:   {{ branding_palette.navy | tojson }},
                         accent: {{ branding_palette.accent | tojson }},
+                    },
+                    fontFamily: {
+                        sans:    [{{ branding.body_font | tojson }}, 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                        display: [{{ branding.headline_font | tojson }}, 'Georgia', 'serif'],
                     },
                 },
             },
@@ -35,6 +42,7 @@
         .htmx-indicator { display: none; }
         .htmx-request .htmx-indicator { display: inline-block; }
         .htmx-request.htmx-indicator { display: inline-block; }
+        h1, h2, h3, h4, h5, h6 { font-family: {{ branding.headline_font_stack }}; }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen transition-colors">
@@ -47,14 +55,14 @@
                     <a href="{{ url_for('main.index') }}" class="flex items-center space-x-2 text-xl font-bold text-navy-600 dark:text-navy-400">
                         {% if branding.mode == "white-label" and branding.org_name %}
                             {% if branding.has_logo %}<img src="{{ url_for('settings.branding_logo') }}" class="h-8 w-auto" alt="">{% endif %}
-                            <span>{{ branding.org_name }}</span>
+                            <span class="font-display">{{ branding.org_name }}</span>
                         {% elif branding.mode == "dual" and branding.org_name %}
                             {% if branding.has_logo %}<img src="{{ url_for('settings.branding_logo') }}" class="h-8 w-auto" alt="">{% endif %}
-                            <span>{{ branding.org_name }}</span>
-                            <span class="text-sm font-normal text-gray-400 dark:text-gray-500">· Mandate</span>
+                            <span class="font-display">{{ branding.org_name }}</span>
+                            <span class="text-sm font-normal font-display text-gray-400 dark:text-gray-500">· Mandate</span>
                         {% else %}
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 15h5.575q.5 0 .75-.312t.25-.688t-.25-.687t-.75-.313H7q-.425 0-.712.288T6 14t.288.713T7 15m0-4h4q.425 0 .713-.288T12 10t-.288-.712T11 9H7q-.425 0-.712.288T6 10t.288.713T7 11m-3 8q-.825 0-1.412-.587T2 17V7q0-.825.588-1.412T4 5h16q.825 0 1.413.588T22 7v1.5q0 .425-.288.713T21 9.5t-.712-.288T20 8.5V7H4v10h6q.425 0 .713.288T11 18t-.288.713T10 19zm18.9-6.7q.125.125.125.275t-.125.275l-.9.9L20.25 12l.9-.9q.125-.125.275-.125t.275.125zm-1.5 2.05l-6.35 6.35q-.15.15-.337.225t-.388.075H13.5q-.2 0-.35-.15T13 20.5v-.825q0-.2.075-.387t.225-.338l6.35-6.35zM4 7v10z"/></svg>
-                            <span>Mandate</span>
+                            <span class="font-display">Mandate</span>
                         {% endif %}
                     </a>
                     {% if current_user.is_authenticated %}

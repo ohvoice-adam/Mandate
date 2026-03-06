@@ -50,6 +50,12 @@ def index():
     smtp_configured = email_service.is_configured()
     notify_config = Settings.get_backup_notify_config()
     branding_config = Settings.get_branding_config()
+    branding_fonts = Settings.get_branding_fonts()
+    import json
+    from app.services.fonts import HEADLINE_FONTS, BODY_FONTS
+    headline_font_options = [(name, name) for name, _, _ in HEADLINE_FONTS]
+    body_font_options = [(name, name) for name, _, _ in BODY_FONTS]
+    font_specs = {name: spec for name, spec, _ in HEADLINE_FONTS + BODY_FONTS}
 
     return render_template(
         "settings/index.html",
@@ -63,6 +69,10 @@ def index():
         smtp_configured=smtp_configured,
         notify_config=notify_config,
         branding_config=branding_config,
+        branding_fonts=branding_fonts,
+        headline_font_options=headline_font_options,
+        body_font_options=body_font_options,
+        font_specs_json=json.dumps(font_specs),
     )
 
 
@@ -247,6 +257,18 @@ def save_branding_config():
         final_accent = ""
 
     Settings.save_branding_config(mode, org_name, final_primary, final_accent)
+
+    from app.services.fonts import HEADLINE_FONTS, BODY_FONTS, DEFAULT_HEADLINE_FONT, DEFAULT_BODY_FONT
+    headline_names = {name for name, _, _ in HEADLINE_FONTS}
+    body_names = {name for name, _, _ in BODY_FONTS}
+    headline_font = request.form.get("branding_headline_font", "").strip()
+    body_font = request.form.get("branding_body_font", "").strip()
+    if headline_font not in headline_names:
+        headline_font = DEFAULT_HEADLINE_FONT
+    if body_font not in body_names:
+        body_font = DEFAULT_BODY_FONT
+    Settings.save_branding_fonts(headline_font, body_font)
+
     flash("Branding configuration saved", "success")
     return redirect(url_for("settings.index"))
 

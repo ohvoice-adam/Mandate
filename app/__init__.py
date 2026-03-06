@@ -1,4 +1,4 @@
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 DEFAULT_PRIMARY = "#0c3e6b"
 DEFAULT_ACCENT = "#f56708"
@@ -53,9 +53,14 @@ def create_app(config_class=Config):
     @app.context_processor
     def inject_globals():
         from app.services.branding import build_palette
+        from app.services.fonts import (
+            build_font_url, get_headline_css_stack, get_body_css_stack,
+            DEFAULT_HEADLINE_FONT, DEFAULT_BODY_FONT,
+        )
         try:
             from app.models import Settings
             cfg = Settings.get_branding_config()
+            fonts = Settings.get_branding_fonts()
             palette = build_palette(
                 cfg["primary_color"] or DEFAULT_PRIMARY,
                 cfg["accent_color"] or DEFAULT_ACCENT,
@@ -69,7 +74,17 @@ def create_app(config_class=Config):
                 "primary_color": "",
                 "accent_color": "",
             }
+            fonts = {"headline_font": DEFAULT_HEADLINE_FONT, "body_font": DEFAULT_BODY_FONT}
             palette = build_palette(DEFAULT_PRIMARY, DEFAULT_ACCENT)
+
+        headline_font = fonts["headline_font"]
+        body_font = fonts["body_font"]
+        cfg["headline_font"] = headline_font
+        cfg["body_font"] = body_font
+        cfg["font_url"] = build_font_url(headline_font, body_font)
+        cfg["headline_font_stack"] = get_headline_css_stack(headline_font)
+        cfg["body_font_stack"] = get_body_css_stack(body_font)
+
         return {"app_version": __version__, "branding": cfg, "branding_palette": palette}
 
     @app.before_request
