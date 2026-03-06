@@ -16,6 +16,7 @@
             <a href="{{ url_for('stats.organizations') }}" class="text-navy-600 dark:text-navy-400 hover:text-navy-800 dark:hover:text-navy-300">
                 Organization Stats
             </a>
+            {% if current_user.is_admin_or_organizer %}
             <a href="{{ url_for('stats.export_matched_csv') }}"
                class="bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-1.5 px-3 rounded-md">
                 ↓ Download Matched CSV
@@ -24,6 +25,7 @@
                class="bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium py-1.5 px-3 rounded-md">
                 ↓ Download Duplicates CSV
             </a>
+            {% endif %}
         </div>
     </div>
 

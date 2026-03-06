@@ -8,6 +8,7 @@ from sqlalchemy import text
 
 from app import db
 from app.models import Settings
+from app.models.user import organizer_required
 from app.services import StatsService
 
 bp = Blueprint("stats", __name__)
@@ -39,7 +40,7 @@ def organizations():
 
 
 @bp.route("/export-matched.csv")
-@login_required
+@organizer_required
 def export_matched_csv():
     """Download matched signatures as a CSV including sos_voterid and voter names."""
     from app.models import Settings
@@ -132,7 +133,7 @@ def export_matched_csv():
 
 
 @bp.route("/export-duplicates.csv")
-@login_required
+@organizer_required
 def export_duplicates_csv():
     """Download voters whose sos_voterid appears in more than one book."""
     rows = db.session.execute(text("""

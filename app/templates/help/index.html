@@ -108,8 +108,10 @@
 
       {{ h3('Core Workflow') }}
       <ol class="list-decimal list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        {% if current_user.is_admin %}
         <li>An admin uploads the voter file (registered voters in your jurisdiction).</li>
         <li>An admin generates numbered petition books and distributes them to collectors.</li>
+        {% endif %}
         <li>Collectors gather signatures in the field.</li>
         <li>Enterers log in, start a session (select collector + book number), and enter each signature.</li>
         <li>For each signature, the enterer searches for the signer's address and records whether it matches a voter record.</li>
@@ -192,7 +194,11 @@
       {{ p('Click the collector\'s name on the Collectors list to open their edit page. You can update their name, contact info, or organization assignment.') }}
 
       {{ h3('Data Enterers') }}
-      {{ p('The Collectors page also has an Enterers tab. Data enterers are the internal staff who log into Mandate and enter signatures. Unlike collectors, enterers have user accounts. The Enterers list is informational — to create a new enterer, use the Users page (organizer or admin role required).') }}
+      {% if current_user.is_admin_or_organizer %}
+      {{ p('The Collectors page also has an Enterers tab. Data enterers are the internal staff who log into Mandate and enter signatures. Unlike collectors, enterers have user accounts. The Enterers list is informational — to create a new enterer, use the Users page.') }}
+      {% else %}
+      {{ p('The Collectors page also has an Enterers tab, listing the internal staff who log into Mandate and enter signatures. Unlike collectors, enterers have user accounts.') }}
+      {% endif %}
     {% endcall %}
 
     {# ── Stats ── #}
@@ -215,6 +221,7 @@
       {{ h3('Books') }}
       {{ p('Shows a row for every petition book that has had at least one signature entered. Columns include total entries, match counts, and validity rate. Click any column header to sort.') }}
 
+      {% if current_user.is_admin_or_organizer %}
       {{ h3('CSV Exports') }}
       <div class="space-y-2 mb-3">
         <div class="text-sm text-gray-700 dark:text-gray-300">
@@ -224,6 +231,7 @@
           <span class="font-medium">Duplicates</span> — downloads a list of voters who appear in more than one petition book. Use this to identify and flag potential duplicate signatures before submission.
         </div>
       </div>
+      {% endif %}
     {% endcall %}
 
     {# ── Users (organizer+) ── #}
