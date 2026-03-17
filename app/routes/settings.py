@@ -51,7 +51,6 @@ def index():
     notify_config = Settings.get_backup_notify_config()
     branding_config = Settings.get_branding_config()
     branding_fonts = Settings.get_branding_fonts()
-    import json
     from app.services.fonts import HEADLINE_FONTS, BODY_FONTS
     headline_font_options = [(name, name) for name, _, _ in HEADLINE_FONTS]
     body_font_options = [(name, name) for name, _, _ in BODY_FONTS]
@@ -72,7 +71,7 @@ def index():
         branding_fonts=branding_fonts,
         headline_font_options=headline_font_options,
         body_font_options=body_font_options,
-        font_specs_json=json.dumps(font_specs),
+        font_specs=font_specs,
     )
 
 

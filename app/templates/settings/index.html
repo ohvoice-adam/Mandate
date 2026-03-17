@@ -565,7 +565,7 @@ document.getElementById('branding_accent_color').addEventListener('input', funct
 });
 
 // Font preview
-const FONT_SPECS = {{ font_specs_json }};
+const FONT_SPECS = {{ font_specs | tojson }};
 
 function loadAndPreviewFont(fontName, elementId) {
     const spec = FONT_SPECS[fontName];

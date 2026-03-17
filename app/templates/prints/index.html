@@ -78,7 +78,7 @@
         </div>
         {% endif %}
 
-        <form method="POST" action="{{ url_for('prints.generate') }}" class="space-y-4">
+        <form id="generate-form" method="POST" action="{{ url_for('prints.generate') }}" class="space-y-4">
             <div class="grid grid-cols-2 gap-4 max-w-sm">
                 <div>
                     <label for="start_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -111,6 +111,61 @@
             </div>
         </form>
     </div>
+
+    <!-- PDF Generation Progress Overlay -->
+    <div id="generate-overlay" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-8 max-w-sm w-full mx-4 text-center space-y-4">
+            <div class="flex justify-center">
+                <svg class="animate-spin h-10 w-10 text-accent-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Generating PDF&hellip;</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400">This may take a moment for large batches. Please wait.</p>
+            <button id="cancel-generate"
+                    class="mt-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold py-2 px-6 rounded">
+                Cancel
+            </button>
+            <p class="text-xs text-gray-400 dark:text-gray-500">Cancelling will stop waiting, but generation may continue in the background.</p>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        const form = document.getElementById('generate-form');
+        const overlay = document.getElementById('generate-overlay');
+        const cancelBtn = document.getElementById('cancel-generate');
+        let controller = null;
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            overlay.classList.remove('hidden');
+            controller = new AbortController();
+
+            fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                signal: controller.signal,
+            }).then(function (response) {
+                window.location.href = response.url || window.location.pathname;
+            }).catch(function (err) {
+                if (err.name !== 'AbortError') {
+                    window.location.reload();
+                } else {
+                    overlay.classList.add('hidden');
+                    controller = null;
+                }
+            });
+        });
+
+        cancelBtn.addEventListener('click', function () {
+            if (controller) {
+                controller.abort();
+            }
+        });
+    })();
+    </script>
 
     <!-- Card 3: Generated PDFs -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
