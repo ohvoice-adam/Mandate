@@ -5,6 +5,27 @@ from app import db
 from app.models import Voter
 
 
+def ensure_search_indexes():
+    """Create pg_trgm extension and voter search indexes if they don't exist.
+
+    Safe to call at every startup — all statements are idempotent.
+    """
+    db.session.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+    db.session.execute(text(
+        "CREATE INDEX IF NOT EXISTS idx_voters_address_btree "
+        "ON voters (residential_address1)"
+    ))
+    db.session.execute(text(
+        "CREATE INDEX IF NOT EXISTS idx_voters_address_trgm "
+        "ON voters USING GIN (residential_address1 gin_trgm_ops)"
+    ))
+    db.session.execute(text(
+        "CREATE INDEX IF NOT EXISTS idx_voters_name_trgm "
+        "ON voters USING GIN (last_name gin_trgm_ops)"
+    ))
+    db.session.commit()
+
+
 class VoterSearchService:
     """Service for searching voters using PostgreSQL full-text search with trigrams."""
 

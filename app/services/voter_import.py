@@ -188,6 +188,9 @@ class VoterImportService:
                 else:
                     voter_import.status = ImportStatus.COMPLETED
                     voter_import.completed_at = datetime.utcnow()
+                    db.session.commit()
+                    # Update query planner statistics after new data is loaded
+                    db.session.execute(text("ANALYZE voters"))
 
                 db.session.commit()
 
