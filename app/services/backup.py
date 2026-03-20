@@ -32,6 +32,28 @@ BACKUP_TABLES = [
 ]
 
 
+def create_local_dump() -> str:
+    """Run pg_dump of BACKUP_TABLES and return the path to the temp file.
+
+    Caller is responsible for deleting the file after use.
+    Raises RuntimeError on failure.
+    """
+    from flask import current_app
+    from app import db
+    from sqlalchemy import text
+
+    db_url = os.environ.get("DATABASE_URL") or current_app.config.get(
+        "SQLALCHEMY_DATABASE_URI", ""
+    )
+    try:
+        version_num = db.session.execute(text("SHOW server_version_num")).scalar()
+        server_major = int(version_num) // 10000
+    except Exception:
+        server_major = None
+
+    return _create_pg_dump(db_url, server_major)
+
+
 def is_configured() -> bool:
     """Return True if all required backup settings are present."""
     from app.models import Settings

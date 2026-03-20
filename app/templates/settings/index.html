@@ -280,6 +280,19 @@
             </p>
         </div>
 
+        <!-- Download backup (always available) -->
+        <div>
+            <a href="{{ url_for('settings.download_backup') }}"
+               class="inline-block bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium py-2 px-4 rounded-md text-sm">
+                ↓ Download Backup Now
+            </a>
+            <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                Downloads a pg_dump of all tables (excludes voter file). Restore with
+                <code class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">pg_restore</code>.
+                May take a moment for large datasets.
+            </p>
+        </div>
+
         <!-- Backup status -->
         <div class="rounded-md px-4 py-3 text-sm
             {% if backup_config.last_status == 'running' %}
@@ -604,10 +617,9 @@
             </div>
         </form>
     </div>
-</div>
 
-<!-- Configuration Export / Import -->
-<div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
+    <!-- Configuration Export / Import -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
     <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Configuration Backup</h2>
     <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">
         Export all non-sensitive settings (excluding passwords, SSH keys, and the org logo) as a JSON file.
@@ -647,7 +659,9 @@
             </p>
         </div>
     </div>
-</div>
+    </div><!-- end Configuration Backup -->
+
+</div><!-- end max-w-2xl container -->
 
 <script>
 // ── Live color preview ──────────────────────────────────────────────────────

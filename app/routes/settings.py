@@ -1,6 +1,7 @@
 import base64
+import os
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify, abort, Response
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify, abort, Response, send_file, after_this_request
 from flask_login import login_required
 from sqlalchemy import text
 
@@ -284,6 +285,36 @@ def save_branding_config():
 
     flash("Branding configuration saved", "success")
     return redirect(url_for("settings.index"))
+
+
+@bp.route("/download-backup")
+@login_required
+@admin_required
+def download_backup():
+    """Stream a pg_dump of the database as a direct browser download."""
+    from datetime import datetime
+
+    try:
+        dump_path = backup_service.create_local_dump()
+    except RuntimeError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("settings.index"))
+
+    @after_this_request
+    def _cleanup(response):
+        try:
+            os.unlink(dump_path)
+        except OSError:
+            pass
+        return response
+
+    filename = f"mandate-backup-{datetime.now().strftime('%Y%m%d-%H%M%S')}.dump"
+    return send_file(
+        dump_path,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/octet-stream",
+    )
 
 
 @bp.route("/export-config")
