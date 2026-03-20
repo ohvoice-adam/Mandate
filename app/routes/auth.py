@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
@@ -27,7 +29,10 @@ def login():
             login_user(user)
             if user.must_change_password:
                 return redirect(url_for("auth.change_password"))
-            next_page = request.args.get("next")
+            next_page = request.args.get("next", "")
+            # Only allow relative redirects to prevent open redirect attacks
+            if next_page and urlparse(next_page).netloc:
+                next_page = ""
             return redirect(next_page or url_for("main.index"))
 
         flash("Invalid email or password", "error")
@@ -35,38 +40,18 @@ def login():
     return render_template("auth/login.html")
 
 
-@bp.route("/logout")
+@bp.route("/logout", methods=["POST"])
 @login_required
 def logout():
     logout_user()
     return redirect(url_for("auth.login"))
 
 
-@bp.route("/register", methods=["GET", "POST"])
+@bp.route("/register")
 def register():
-    if current_user.is_authenticated:
-        return redirect(url_for("main.index"))
-
-    if request.method == "POST":
-        email = request.form.get("email")
-        password = request.form.get("password")
-        first_name = request.form.get("first_name")
-        last_name = request.form.get("last_name")
-
-        if User.query.filter_by(email=email).first():
-            flash("Email already registered", "error")
-            return render_template("auth/register.html")
-
-        user = User(email=email, first_name=first_name, last_name=last_name)
-        user.set_password(password)
-
-        db.session.add(user)
-        db.session.commit()
-
-        flash("Registration successful! Please log in.", "success")
-        return redirect(url_for("auth.login"))
-
-    return render_template("auth/register.html")
+    # Public self-registration is disabled. Accounts are created by administrators.
+    flash("Account registration is not open. Contact an administrator to create an account.", "info")
+    return redirect(url_for("auth.login"))
 
 
 @bp.route("/change-password", methods=["GET", "POST"])
@@ -110,7 +95,8 @@ def forgot_password():
         if user and smtp_configured:
             try:
                 s = URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="password-reset")
-                token = s.dumps(user.id)
+                # Include a hash of the current password so the token is invalidated after use
+                token = s.dumps({"id": user.id, "ph": user.password_hash[-8:] if user.password_hash else ""})
                 reset_url = url_for("auth.reset_password", token=token, _external=True)
                 email_service.send_password_reset_email(user.email, reset_url)
             except Exception:
@@ -126,7 +112,7 @@ def reset_password(token):
 
     s = URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="password-reset")
     try:
-        user_id = s.loads(token, max_age=3600)
+        payload = s.loads(token, max_age=3600)
     except SignatureExpired:
         flash("This password reset link has expired. Please request a new one.", "error")
         return redirect(url_for("auth.forgot_password"))
@@ -134,9 +120,17 @@ def reset_password(token):
         flash("Invalid password reset link.", "error")
         return redirect(url_for("auth.forgot_password"))
 
+    user_id = payload.get("id") if isinstance(payload, dict) else payload
     user = db.session.get(User, user_id)
     if user is None:
         flash("Invalid password reset link.", "error")
+        return redirect(url_for("auth.forgot_password"))
+
+    # Verify the password hasn't changed since the token was issued (prevents replay)
+    expected_ph = payload.get("ph", "") if isinstance(payload, dict) else ""
+    current_ph = user.password_hash[-8:] if user.password_hash else ""
+    if expected_ph and expected_ph != current_ph:
+        flash("This password reset link has already been used. Please request a new one.", "error")
         return redirect(url_for("auth.forgot_password"))
 
     if request.method == "POST":

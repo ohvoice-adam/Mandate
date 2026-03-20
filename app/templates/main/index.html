@@ -19,6 +19,7 @@
                 Continue Entry
             </a>
             <form method="POST" action="{{ url_for('main.end_session') }}" class="inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit"
                         class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-md">
                     End Session
@@ -33,6 +34,7 @@
         <h2 class="text-xl font-semibold mb-4">Start New Session</h2>
 
         <form method="POST" action="{{ url_for('main.start_session') }}" id="session-form" class="space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="override" id="override" value="">
             <div>
                 <label for="book_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Book Number</label>

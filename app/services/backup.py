@@ -243,7 +243,7 @@ def _make_ssh_client(scp_config: dict, timeout: int):
 
     pkey = _load_pkey(scp_config["key_content"])
     client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.set_missing_host_key_policy(paramiko.WarningPolicy())
     client.connect(
         scp_config["host"],
         port=scp_config["port"],
@@ -277,7 +277,7 @@ def test_sftp_connection(scp_config: dict, password: str | None = None) -> tuple
     if password:
         try:
             client = paramiko.SSHClient()
-            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            client.set_missing_host_key_policy(paramiko.WarningPolicy())
             client.connect(
                 host,
                 port=scp_config["port"],
@@ -316,7 +316,7 @@ def test_sftp_connection(scp_config: dict, password: str | None = None) -> tuple
     try:
         for label, extra_kwargs in strategies:
             client = paramiko.SSHClient()
-            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            client.set_missing_host_key_policy(paramiko.WarningPolicy())
             try:
                 client.connect(
                     host,

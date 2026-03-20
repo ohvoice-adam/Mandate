@@ -138,9 +138,9 @@ def test_backup_connection():
         password = request.form.get("test_password") or None
         ok, message = backup_service.test_sftp_connection(scp_config, password=password)
         return jsonify(ok=ok, message=message)
-    except Exception as exc:
+    except Exception:
         current_app.logger.exception("Unexpected error in test_backup_connection")
-        return jsonify(ok=False, message=f"Server error: {exc}"), 500
+        return jsonify(ok=False, message="Server error. Check the application logs."), 500
 
 
 @bp.route("/run-backup", methods=["POST"])
@@ -236,7 +236,21 @@ def save_branding_config():
     logo_file = request.files.get("branding_logo")
     if logo_file and logo_file.filename:
         logo_bytes = logo_file.read()
-        mime = logo_file.mimetype or "image/png"
+        # Validate actual image content with Pillow — never trust the client MIME type
+        try:
+            from PIL import Image
+            import io as _io
+            img = Image.open(_io.BytesIO(logo_bytes))
+            img.verify()
+            fmt = (img.format or "").lower()
+            allowed_formats = {"png", "jpeg", "gif", "webp"}
+            if fmt not in allowed_formats:
+                flash(f"Logo must be a PNG, JPEG, GIF, or WebP image (got {fmt or 'unknown'}).", "error")
+                return redirect(url_for("settings.index"))
+            mime = f"image/{fmt}" if fmt != "jpeg" else "image/jpeg"
+        except Exception:
+            flash("Uploaded logo is not a valid image file.", "error")
+            return redirect(url_for("settings.index"))
         Settings.set("branding_logo_content", base64.b64encode(logo_bytes).decode())
         Settings.set("branding_logo_mime", mime)
         # Auto-extracted colors always win when a new logo is uploaded.

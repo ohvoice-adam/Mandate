@@ -219,14 +219,27 @@ class VoterImportService:
                 except Exception:
                     pass
 
+    # Allowlisted voter column names (matches COLUMN_MAPPING values)
+    _VOTER_COLUMNS = tuple(sorted({
+        "sos_voterid", "county_number", "first_name", "middle_name", "last_name",
+        "residential_address1", "residential_address2", "residential_city",
+        "residential_state", "residential_zip", "city", "date_of_birth",
+        "registration_date", "precinct_code", "precinct_name", "ward",
+    }))
+
+    @classmethod
+    def _safe_backup_table(cls, import_id: int) -> str:
+        """Return a safe backup table name for the given import ID."""
+        return f"voters_backup_{int(import_id)}"
+
     @classmethod
     def _create_backup(cls, voter_import, county_number):
         """Create a backup table of existing county voters."""
-        backup_table = f"voters_backup_{voter_import.id}"
+        backup_table = cls._safe_backup_table(voter_import.id)
         voter_import.backup_table = backup_table
 
         # Store the detected county number for rollback
-        voter_import.detected_county_numbers = county_number
+        voter_import.detected_county_ids = county_number
 
         # Get the highest voter ID before import (for rollback reference)
         result = db.session.execute(text("SELECT MAX(id) FROM voters"))
@@ -383,11 +396,12 @@ class VoterImportService:
         if not batch:
             return
 
-        # Collect all columns from all records in the batch
-        all_columns = set()
+        # Use only allowlisted columns — never interpolate arbitrary keys into SQL
+        allowed = set(cls._VOTER_COLUMNS)
+        all_keys: set[str] = set()
         for record in batch:
-            all_columns.update(record.keys())
-        columns = sorted(all_columns)
+            all_keys.update(record.keys())
+        columns = sorted(all_keys & allowed)
 
         placeholders = ", ".join([f":{col}" for col in columns])
         column_names = ", ".join(columns)
@@ -425,6 +439,12 @@ class VoterImportService:
         if not voter_import.backup_table:
             return
 
+        # Validate backup table name against expected pattern before interpolation
+        import re as _re
+        if not _re.match(r'^voters_backup_\d+$', voter_import.backup_table):
+            current_app.logger.error("Refusing to restore from unexpected backup table name: %s", voter_import.backup_table)
+            return
+
         # Check if backup table exists
         result = db.session.execute(text("""
             SELECT EXISTS (
@@ -437,7 +457,7 @@ class VoterImportService:
             return
 
         # Get the stored county number
-        county_number = voter_import.detected_county_numbers
+        county_number = voter_import.detected_county_ids
         if not county_number:
             return
 
@@ -447,13 +467,13 @@ class VoterImportService:
             {"county_number": county_number}
         )
 
-        # Restore from backup (without the id column to let DB auto-increment)
-        columns = [col for col in cls.COLUMN_MAPPING.values()]
-        column_list = ", ".join(columns)
+        # Restore from backup using allowlisted columns only
+        column_list = ", ".join(cls._VOTER_COLUMNS)
+        backup_table = voter_import.backup_table  # already validated above
 
         db.session.execute(text(f"""
             INSERT INTO voters ({column_list})
-            SELECT {column_list} FROM {voter_import.backup_table}
+            SELECT {column_list} FROM {backup_table}
         """))
 
         db.session.commit()
@@ -466,6 +486,9 @@ class VoterImportService:
             return
 
         try:
+            import re as _re
+            if not _re.match(r'^voters_backup_\d+$', voter_import.backup_table):
+                return
             db.session.execute(text(f"DROP TABLE IF EXISTS {voter_import.backup_table}"))
             voter_import.backup_table = None
             db.session.commit()

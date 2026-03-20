@@ -1,4 +1,4 @@
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 DEFAULT_PRIMARY = "#0c3e6b"
 DEFAULT_ACCENT = "#f56708"
@@ -10,10 +10,13 @@ from flask_migrate import Migrate
 
 from app.config import Config
 
+from flask_wtf.csrf import CSRFProtect
+
 db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
 login_manager.login_view = "auth.login"
+csrf = CSRFProtect()
 
 
 def create_app(config_class=Config):
@@ -24,6 +27,9 @@ def create_app(config_class=Config):
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
+    csrf.init_app(app)
+    # Accept CSRF token from X-CSRFToken header (used by HTMX requests)
+    app.config["WTF_CSRF_HEADERS"] = ["X-CSRFToken"]
 
     # Register blueprints
     from app.routes.main import bp as main_bp

@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app  # noqa: F401 (current_app used in exception handlers)
 from flask_login import login_required
 
 from app import db
@@ -69,8 +69,9 @@ def upload():
         try:
             new_imports = VoterImportService.handle_upload(file, county_name, current_app._get_current_object())
             imports_created.extend(new_imports)
-        except Exception as e:
-            flash(f"Error processing {file.filename}: {str(e)}", "error")
+        except Exception:
+            current_app.logger.exception("Error processing upload: %s", file.filename)
+            flash("An error occurred processing the upload. Check the application logs.", "error")
 
     if imports_created:
         flash(f"Started {len(imports_created)} import(s)", "success")
@@ -137,8 +138,9 @@ def rollback(import_id):
     try:
         VoterImportService.rollback_import(import_id)
         flash("Import rolled back successfully", "success")
-    except Exception as e:
-        flash(f"Rollback failed: {str(e)}", "error")
+    except Exception:
+        current_app.logger.exception("Rollback failed for import %d", import_id)
+        flash("Rollback failed. Check the application logs.", "error")
 
     return redirect(url_for("imports.index"))
 
@@ -156,8 +158,9 @@ def cleanup(import_id):
     try:
         VoterImportService.cleanup_backup(import_id)
         flash("Backup cleaned up", "success")
-    except Exception as e:
-        flash(f"Cleanup failed: {str(e)}", "error")
+    except Exception:
+        current_app.logger.exception("Cleanup failed for import %d", import_id)
+        flash("Cleanup failed. Check the application logs.", "error")
 
     return redirect(url_for("imports.index"))
 
@@ -170,8 +173,9 @@ def delete_all():
     try:
         deleted_count = VoterImportService.delete_all_voters()
         flash(f"Deleted {deleted_count:,} voters", "success")
-    except Exception as e:
-        flash(f"Delete failed: {str(e)}", "error")
+    except Exception:
+        current_app.logger.exception("delete_all_voters failed")
+        flash("Delete failed. Check the application logs.", "error")
 
     return redirect(url_for("imports.index"))
 
@@ -195,7 +199,8 @@ def delete_county():
     try:
         deleted_count = VoterImportService.delete_county(county_number)
         flash(f"Deleted {deleted_count:,} voters from {county_name} county", "success")
-    except Exception as e:
-        flash(f"Delete failed: {str(e)}", "error")
+    except Exception:
+        current_app.logger.exception("delete_county failed for %s", county_name)
+        flash("Delete failed. Check the application logs.", "error")
 
     return redirect(url_for("imports.index"))

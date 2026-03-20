@@ -44,12 +44,30 @@ def save_templates():
     saved = []
     saved_sizes = {}
 
+    def _validate_and_read_pdf(file_storage, label):
+        """Read and validate a PDF upload. Returns bytes or None on error."""
+        if not file_storage or not file_storage.filename:
+            return None
+        if not file_storage.filename.lower().endswith(".pdf"):
+            flash(f"{label} must be a PDF file.", "error")
+            return None
+        content = file_storage.read()
+        try:
+            import fitz
+            doc = fitz.open(stream=content, filetype="pdf")
+            if doc.page_count < 1:
+                raise ValueError("PDF has no pages")
+            doc.close()
+        except Exception:
+            flash(f"{label} is not a valid PDF.", "error")
+            return None
+        return content
+
     cover_file = request.files.get("cover_pdf")
     if cover_file and cover_file.filename:
-        if not cover_file.filename.lower().endswith(".pdf"):
-            flash("Cover file must be a PDF", "error")
+        content = _validate_and_read_pdf(cover_file, "Cover file")
+        if content is None:
             return redirect(url_for("prints.index"))
-        content = cover_file.read()
         saved_sizes["cover"] = len(content)
         Settings.set("petition_cover_pdf", base64.b64encode(content).decode())
         Settings.set("petition_cover_pdf_name", cover_file.filename)
@@ -57,10 +75,9 @@ def save_templates():
 
     petition_file = request.files.get("petition_pdf")
     if petition_file and petition_file.filename:
-        if not petition_file.filename.lower().endswith(".pdf"):
-            flash("Petition file must be a PDF", "error")
+        content = _validate_and_read_pdf(petition_file, "Petition file")
+        if content is None:
             return redirect(url_for("prints.index"))
-        content = petition_file.read()
         saved_sizes["petition"] = len(content)
         Settings.set("petition_page_pdf", base64.b64encode(content).decode())
         Settings.set("petition_page_pdf_name", petition_file.filename)
@@ -119,9 +136,9 @@ def generate():
 
     try:
         pdf_bytes, page_count = generate_petition_pdf(cover_bytes, petition_bytes, start_number, end_number)
-    except Exception as e:
+    except Exception:
         current_app.logger.exception("PDF generation failed for range %d–%d", start_number, end_number)
-        flash(f"PDF generation failed: {e}", "error")
+        flash("PDF generation failed. Check the application logs.", "error")
         return redirect(url_for("prints.index"))
 
     filename = f"petition-books-{start_number:05d}-{end_number:05d}-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}.pdf"

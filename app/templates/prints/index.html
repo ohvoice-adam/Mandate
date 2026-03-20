@@ -10,6 +10,7 @@
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Template PDFs</h2>
         <form method="POST" action="{{ url_for('prints.save_templates') }}" enctype="multipart/form-data" class="space-y-6">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Cover PDF -->
                 <div>
@@ -79,6 +80,7 @@
         {% endif %}
 
         <form id="generate-form" method="POST" action="{{ url_for('prints.generate') }}" class="space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="grid grid-cols-2 gap-4 max-w-sm">
                 <div>
                     <label for="start_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

@@ -70,6 +70,7 @@
                         </a>
                         {% if user.id != current_user.id %}
                         <form method="POST" action="{{ url_for('users.toggle_active', id=user.id) }}" class="inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit"
                                     class="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
                                 {% if user.is_active %}Deactivate{% else %}Activate{% endif %}

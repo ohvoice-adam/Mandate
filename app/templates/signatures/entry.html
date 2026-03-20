@@ -11,6 +11,7 @@
             <span class="text-gray-500 dark:text-gray-400">Date: <span class="text-gray-900 dark:text-white">{{ today }}</span></span>
         </div>
         <form method="POST" action="{{ url_for('main.end_session') }}" class="inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm">
                 End Session
             </button>

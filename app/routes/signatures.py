@@ -1,13 +1,21 @@
 from datetime import date
 
 from flask import Blueprint, render_template, request, session, flash, redirect, url_for
-from flask_login import login_required
+from flask_login import login_required, current_user
 
 from app import db
-from app.models import Signature, Voter
+from app.models import Batch, Signature, Voter
 from app.services import VoterSearchService
 
 bp = Blueprint("signatures", __name__)
+
+
+def _verify_session_ownership(book_id, batch_id):
+    """Return True if the current user owns the active batch."""
+    if not book_id or not batch_id:
+        return False
+    batch = db.session.get(Batch, batch_id)
+    return batch is not None and batch.enterer_id == current_user.id
 
 
 @bp.route("/")
@@ -52,7 +60,7 @@ def record_match():
     book_id = session.get("book_id")
     batch_id = session.get("batch_id")
 
-    if not book_id or not batch_id:
+    if not _verify_session_ownership(book_id, batch_id):
         return {"error": "No active session"}, 400
 
     voter_id = request.form.get("voter_id")
@@ -101,7 +109,7 @@ def record_address_only():
     book_id = session.get("book_id")
     batch_id = session.get("batch_id")
 
-    if not book_id or not batch_id:
+    if not _verify_session_ownership(book_id, batch_id):
         return {"error": "No active session"}, 400
 
     voter_id = request.form.get("voter_id")
@@ -149,7 +157,8 @@ def undo_last():
     """Delete the most recently recorded signature in the current batch."""
     batch_id = session.get("batch_id")
 
-    if not batch_id:
+    book_id = session.get("book_id")
+    if not _verify_session_ownership(book_id, batch_id):
         return {"error": "No active session"}, 400
 
     last = (
@@ -175,7 +184,7 @@ def record_no_match():
     book_id = session.get("book_id")
     batch_id = session.get("batch_id")
 
-    if not book_id or not batch_id:
+    if not _verify_session_ownership(book_id, batch_id):
         return {"error": "No active session"}, 400
 
     # Create signature with minimal info (no voter data)

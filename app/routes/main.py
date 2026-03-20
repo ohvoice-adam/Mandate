@@ -2,6 +2,7 @@ from datetime import date
 
 from flask import Blueprint, render_template, redirect, url_for, request, session, flash
 from flask_login import login_required, current_user
+from sqlalchemy.exc import IntegrityError
 
 from app import db
 from app.models import Book, Batch, Collector
@@ -47,18 +48,26 @@ def start_session():
         flash("Date In cannot be before Date Out.", "error")
         return redirect(url_for("main.index"))
 
-    # Find or create the book
+    # Find or create the book (handle race condition with retry on IntegrityError)
     book = Book.query.filter_by(book_number=book_number).first()
     if not book:
-        book = Book(
-            book_number=book_number,
-            collector_id=collector_id,
-            date_out=date_out,
-            date_back=date_back,
-        )
-        db.session.add(book)
-        db.session.commit()
-    else:
+        try:
+            book = Book(
+                book_number=book_number,
+                collector_id=collector_id,
+                date_out=date_out,
+                date_back=date_back,
+            )
+            db.session.add(book)
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            book = Book.query.filter_by(book_number=book_number).first()
+            if not book:
+                flash("Could not create book. Please try again.", "error")
+                return redirect(url_for("main.index"))
+
+    if book:
         # Update dates on existing book
         book.date_out = date_out
         book.date_back = date_back

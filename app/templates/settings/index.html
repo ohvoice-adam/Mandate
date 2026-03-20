@@ -8,6 +8,7 @@
 
     <!-- ── Application Settings ── -->
     <form method="POST" class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm space-y-6">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Application Settings</h2>
 
         <div>
@@ -79,6 +80,7 @@
         <form method="POST" action="{{ url_for('settings.save_branding_config') }}"
               enctype="multipart/form-data"
               class="space-y-5">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <div>
                 <label for="branding_mode" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -263,7 +265,8 @@
         </form>
 
         {# Out-of-band form so the clear-logo button isn't nested inside the branding form #}
-        <form id="clear-logo-form" method="POST" action="{{ url_for('settings.clear_logo') }}" class="hidden"></form>
+        <form id="clear-logo-form" method="POST" action="{{ url_for('settings.clear_logo') }}" class="hidden">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
     </div>
 
     <!-- ── Backup Configuration ── -->
@@ -308,6 +311,7 @@
         {% if backup_configured %}
         <div class="flex items-center gap-3 flex-wrap">
             <form method="POST" action="{{ url_for('settings.run_backup') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit"
                         {% if backup_config.last_status == 'running' %}disabled{% endif %}
                         class="bg-navy-600 hover:bg-navy-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-md text-sm">
@@ -335,6 +339,7 @@
         <form method="POST" action="{{ url_for('settings.save_backup_config') }}"
               enctype="multipart/form-data"
               class="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">SCP / SFTP Configuration</h3>
 
             <div class="grid grid-cols-3 gap-4">
@@ -523,6 +528,7 @@
         <!-- SMTP configuration form -->
         <form method="POST" action="{{ url_for('settings.save_smtp_config') }}"
               class="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">SMTP Configuration</h3>
 
             <div class="grid grid-cols-3 gap-4">
@@ -623,6 +629,7 @@
             <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Import</h3>
             <form method="POST" action="{{ url_for('settings.import_config') }}" enctype="multipart/form-data"
                   class="flex items-center gap-3 flex-wrap">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="file" name="config_file" accept=".json,application/json"
                        class="block text-sm text-gray-600 dark:text-gray-400
                               file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0

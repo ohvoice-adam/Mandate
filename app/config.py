@@ -5,7 +5,15 @@ load_dotenv()
 
 
 class Config:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-key-change-me")
+    _secret = os.environ.get("SECRET_KEY", "")
+    if not _secret:
+        import warnings
+        warnings.warn(
+            "SECRET_KEY is not set. Sessions and tokens are insecure. Set SECRET_KEY in your environment.",
+            stacklevel=2,
+        )
+        _secret = "dev-key-change-me"
+    SECRET_KEY = _secret
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "DATABASE_URL", "postgresql://localhost:5432/mandate"
     )
