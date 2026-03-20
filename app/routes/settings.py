@@ -272,6 +272,148 @@ def save_branding_config():
     return redirect(url_for("settings.index"))
 
 
+@bp.route("/export-config")
+@login_required
+@admin_required
+def export_config():
+    """Download non-sensitive settings as a JSON file."""
+    import json
+    from datetime import datetime
+
+    SENSITIVE = {"backup_scp_key_content", "smtp_password", "branding_logo_content"}
+
+    rows = Settings.query.order_by(Settings.key).all()
+    data = {row.key: row.value for row in rows if row.key not in SENSITIVE}
+
+    payload = json.dumps({"mandate_settings": data, "exported_at": datetime.utcnow().isoformat()}, indent=2)
+    filename = f"mandate-config-{datetime.utcnow().strftime('%Y%m%d')}.json"
+    return Response(
+        payload,
+        mimetype="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@bp.route("/import-config", methods=["POST"])
+@login_required
+@admin_required
+def import_config():
+    """Restore non-sensitive settings from an uploaded JSON file."""
+    import json
+
+    SENSITIVE = {"backup_scp_key_content", "smtp_password", "branding_logo_content"}
+
+    uploaded = request.files.get("config_file")
+    if not uploaded or not uploaded.filename:
+        flash("No file selected.", "error")
+        return redirect(url_for("settings.index"))
+
+    try:
+        raw = uploaded.read().decode("utf-8")
+        obj = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        flash("Invalid file — must be a UTF-8 encoded JSON file.", "error")
+        return redirect(url_for("settings.index"))
+
+    data = obj.get("mandate_settings") if isinstance(obj, dict) else None
+    if not isinstance(data, dict):
+        flash("Invalid config file format.", "error")
+        return redirect(url_for("settings.index"))
+
+    imported = 0
+    for key, value in data.items():
+        if key in SENSITIVE:
+            continue
+        if not isinstance(key, str) or not isinstance(value, (str, type(None))):
+            continue
+        Settings.set(key, value or "")
+        imported += 1
+
+    scheduler_service.apply_schedule(current_app._get_current_object())
+    flash(f"Configuration imported ({imported} settings restored).", "success")
+    return redirect(url_for("settings.index"))
+
+
+@bp.route("/system-health")
+@login_required
+@admin_required
+def system_health():
+    """System health dashboard."""
+    from datetime import datetime, timedelta
+    from sqlalchemy import text as sqlt
+    from app.models import User, VoterImport, ImportStatus
+
+    now = datetime.utcnow()
+    active_threshold = now - timedelta(minutes=30)
+
+    # Users active in the last 30 minutes, with their last-entered signature timestamp
+    active_users_rows = db.session.execute(sqlt("""
+        SELECT
+            u.id,
+            u.first_name,
+            u.last_name,
+            u.email,
+            u.role,
+            u.last_seen,
+            MAX(s.created_at) AS last_signature_at
+        FROM users u
+        LEFT JOIN batches b  ON b.enterer_id = u.id
+        LEFT JOIN signatures s ON s.batch_id = b.id
+        WHERE u.last_seen >= :threshold
+        GROUP BY u.id, u.first_name, u.last_name, u.email, u.role, u.last_seen
+        ORDER BY u.last_seen DESC
+    """), {"threshold": active_threshold}).fetchall()
+
+    city_pattern = Settings.get_target_city_pattern()
+    target_city_display = Settings.get_target_city_display()
+
+    # Counts
+    counts = db.session.execute(sqlt("""
+        SELECT
+            (SELECT COUNT(*) FROM users WHERE is_active = TRUE)          AS total_users,
+            (SELECT COUNT(*) FROM signatures)                            AS total_signatures,
+            (SELECT COUNT(*) FROM voters
+             WHERE city LIKE :city_pattern)                              AS total_voters,
+            (SELECT COUNT(*) FROM books)                                 AS total_books,
+            (SELECT COUNT(*) FROM batches WHERE status = 'open')         AS open_batches,
+            (SELECT COUNT(DISTINCT county_number) FROM voters
+             WHERE county_number IS NOT NULL AND county_number <> '')    AS loaded_counties
+    """), {"city_pattern": city_pattern}).fetchone()
+
+    # Most recent completed voter import
+    last_import = (
+        VoterImport.query
+        .filter_by(status=ImportStatus.COMPLETED)
+        .order_by(VoterImport.completed_at.desc())
+        .first()
+    )
+
+    # Backup info
+    backup_config = Settings.get_backup_config()
+
+    # Recent signature activity (last 24h, by hour)
+    hourly_activity = db.session.execute(sqlt("""
+        SELECT
+            date_trunc('hour', created_at) AS hour,
+            COUNT(*) AS count
+        FROM signatures
+        WHERE created_at >= NOW() - INTERVAL '24 hours'
+        GROUP BY 1
+        ORDER BY 1
+    """)).fetchall()
+
+    return render_template(
+        "settings/system_health.html",
+        active_users=active_users_rows,
+        counts=counts,
+        last_import=last_import,
+        backup_config=backup_config,
+        hourly_activity=hourly_activity,
+        target_city_display=target_city_display,
+        now=now,
+    )
+
+
 def get_distinct_cities() -> list[dict]:
     """Get distinct cities from the voter file."""
     result = db.session.execute(text("""

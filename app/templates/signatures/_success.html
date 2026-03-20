@@ -1,4 +1,13 @@
 <div data-success class="text-center py-8">
+    {% if dupe_in_batch %}
+    <div class="mb-4 mx-auto max-w-xs rounded-lg bg-red-500/20 border border-red-500/40 px-4 py-3 text-red-400 text-sm font-medium">
+        ⚠ Duplicate — this voter is already in this batch
+    </div>
+    {% elif dupe_cross_batch %}
+    <div class="mb-4 mx-auto max-w-xs rounded-lg bg-yellow-500/20 border border-yellow-500/40 px-4 py-3 text-yellow-400 text-sm font-medium">
+        ⚠ This voter appears in another book
+    </div>
+    {% endif %}
     <div class="inline-flex items-center justify-center w-12 h-12 rounded-full mb-3
                 {% if match_type == 'person' %}bg-green-500/20 text-green-400
                 {% elif match_type == 'address' %}bg-orange-500/20 text-orange-400
@@ -10,6 +19,13 @@
     <p class="{% if match_type == 'person' %}text-green-400{% elif match_type == 'address' %}text-orange-400{% else %}text-gray-400{% endif %} font-medium">
         {{ message }}
     </p>
+    <button data-action="undo"
+            class="mt-3 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline"
+            hx-post="{{ url_for('signatures.undo_last') }}"
+            hx-target="#search-results"
+            hx-swap="innerHTML">
+        Undo
+    </button>
 </div>
 
 <script>

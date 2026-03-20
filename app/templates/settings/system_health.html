@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}System Health - {{ branding.org_name or "Mandate" }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold">System Health</h1>
+        <div class="flex items-center gap-4">
+            <span class="text-sm text-gray-500 dark:text-gray-400">
+                {{ now.strftime('%Y-%m-%d %H:%M') }} UTC
+            </span>
+            <a href="{{ url_for('settings.index') }}"
+               class="text-navy-600 dark:text-navy-400 hover:text-navy-800 dark:hover:text-navy-300 text-sm">
+                &larr; Settings
+            </a>
+        </div>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm text-center">
+            <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ "{:,}".format(counts.total_signatures) }}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Signatures</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm text-center">
+            <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ "{:,}".format(counts.total_voters) }}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ target_city_display }} Voters</div>
+            <div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">across all loaded counties</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm text-center">
+            <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ counts.total_books }}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Books</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm text-center">
+            <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ counts.loaded_counties }}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Counties Loaded</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm text-center">
+            <div class="text-2xl font-bold {% if counts.open_batches > 0 %}text-yellow-600 dark:text-yellow-400{% else %}text-gray-900 dark:text-white{% endif %}">
+                {{ counts.open_batches }}
+            </div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Open Batches</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm text-center">
+            <div class="text-2xl font-bold {% if active_users %}text-green-600 dark:text-green-400{% else %}text-gray-900 dark:text-white{% endif %}">
+                {{ active_users | length }}
+            </div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Active Users</div>
+        </div>
+    </div>
+
+    <!-- Active users -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Active Users
+                <span class="text-sm font-normal text-gray-500 dark:text-gray-400">(last 30 minutes)</span>
+            </h2>
+            <span class="text-xs text-gray-400 dark:text-gray-500">Page refreshes every 60 seconds</span>
+        </div>
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+            <thead class="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">User</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Last Seen</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Last Signature Entered</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for u in active_users %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td class="px-6 py-3 whitespace-nowrap">
+                        <div class="font-medium text-gray-900 dark:text-white">{{ u.first_name }} {{ u.last_name }}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">{{ u.email }}</div>
+                    </td>
+                    <td class="px-6 py-3 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                            {% if u.role == 'admin' %}bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300
+                            {% elif u.role == 'organizer' %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300
+                            {% else %}bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                            {{ u.role | title }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-3 whitespace-nowrap text-gray-600 dark:text-gray-300">
+                        {% if u.last_seen %}
+                        <span title="{{ u.last_seen.strftime('%Y-%m-%d %H:%M:%S') }} UTC">
+                            {{ u.last_seen.strftime('%H:%M:%S') }} UTC
+                        </span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="px-6 py-3 whitespace-nowrap text-gray-600 dark:text-gray-300">
+                        {% if u.last_signature_at %}
+                        <span title="{{ u.last_signature_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC">
+                            {{ u.last_signature_at.strftime('%Y-%m-%d %H:%M') }} UTC
+                        </span>
+                        {% else %}
+                        <span class="text-gray-400 dark:text-gray-500">No signatures yet</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="px-6 py-8 text-center text-gray-400 dark:text-gray-500">
+                        No users active in the last 30 minutes.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Activity + system status row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- Last 24h activity chart -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Signature Activity (last 24h)</h2>
+            {% if hourly_activity %}
+            {% set max_count = hourly_activity | map(attribute='count') | max %}
+            <div class="space-y-1">
+                {% for row in hourly_activity %}
+                {% set bar_pct = (row.count * 100 / max_count) | round(0) | int if max_count else 0 %}
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-11 text-right text-gray-500 dark:text-gray-400 shrink-0">
+                        {{ row.hour.strftime('%H:%M') }}
+                    </span>
+                    <div class="flex-1 bg-gray-100 dark:bg-gray-700 rounded h-4 overflow-hidden">
+                        <div class="bg-navy-500 h-full rounded" style="width: {{ bar_pct }}%"></div>
+                    </div>
+                    <span class="w-8 text-gray-600 dark:text-gray-300 shrink-0">{{ row.count }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-400 dark:text-gray-500">No signature activity in the last 24 hours.</p>
+            {% endif %}
+        </div>
+
+        <!-- System status -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm space-y-5">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">System Status</h2>
+
+            <!-- Voter file -->
+            <div>
+                <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Voter File</div>
+                {% if last_import %}
+                <div class="flex items-center gap-2">
+                    <span class="inline-block w-2 h-2 rounded-full bg-green-500"></span>
+                    <span class="text-sm text-gray-700 dark:text-gray-300">
+                        Last import: <strong>{{ last_import.county_name }}</strong>
+                        ({{ "{:,}".format(last_import.total_rows) }} rows)
+                    </span>
+                </div>
+                <div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5 ml-4">
+                    Completed {{ last_import.completed_at.strftime('%Y-%m-%d %H:%M') }} UTC
+                </div>
+                {% else %}
+                <div class="flex items-center gap-2">
+                    <span class="inline-block w-2 h-2 rounded-full bg-yellow-400"></span>
+                    <span class="text-sm text-gray-500 dark:text-gray-400">No voter file imported yet.</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Backup -->
+            <div>
+                <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Database Backup</div>
+                {% if backup_config.last_status %}
+                    {% if backup_config.last_status == 'success' %}
+                    <div class="flex items-center gap-2">
+                        <span class="inline-block w-2 h-2 rounded-full bg-green-500"></span>
+                        <span class="text-sm text-gray-700 dark:text-gray-300">
+                            Last backup succeeded
+                            {% if backup_config.last_run %}
+                            — {{ backup_config.last_run[:16].replace('T', ' ') }} UTC
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% elif backup_config.last_status == 'running' %}
+                    <div class="flex items-center gap-2">
+                        <span class="inline-block w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
+                        <span class="text-sm text-gray-700 dark:text-gray-300">Backup running…</span>
+                    </div>
+                    {% else %}
+                    <div class="flex items-center gap-2">
+                        <span class="inline-block w-2 h-2 rounded-full bg-red-500"></span>
+                        <span class="text-sm text-red-600 dark:text-red-400">
+                            Last backup failed: {{ backup_config.last_status[6:] if backup_config.last_status.startswith('error:') else backup_config.last_status }}
+                        </span>
+                    </div>
+                    {% endif %}
+                {% elif backup_config.scp_host %}
+                <div class="flex items-center gap-2">
+                    <span class="inline-block w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+                    <span class="text-sm text-gray-500 dark:text-gray-400">Backup configured, never run.</span>
+                </div>
+                {% else %}
+                <div class="flex items-center gap-2">
+                    <span class="inline-block w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+                    <span class="text-sm text-gray-500 dark:text-gray-400">Backup not configured.</span>
+                </div>
+                {% endif %}
+                {% if backup_config.schedule %}
+                <div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5 ml-4">
+                    Schedule: {{ backup_config.schedule }}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Open batches warning -->
+            {% if counts.open_batches > 0 %}
+            <div>
+                <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Open Batches</div>
+                <div class="flex items-center gap-2">
+                    <span class="inline-block w-2 h-2 rounded-full bg-yellow-400"></span>
+                    <span class="text-sm text-yellow-700 dark:text-yellow-400">
+                        {{ counts.open_batches }} batch{{ 'es' if counts.open_batches != 1 }} still open (entry session in progress or interrupted).
+                    </span>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- User count -->
+            <div>
+                <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Users</div>
+                <div class="flex items-center gap-2">
+                    <span class="inline-block w-2 h-2 rounded-full bg-green-500"></span>
+                    <span class="text-sm text-gray-700 dark:text-gray-300">
+                        {{ counts.total_users }} active user{{ 's' if counts.total_users != 1 }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-refresh every 60 seconds
+setTimeout(function() { location.reload(); }, 60000);
+</script>
+{% endblock %}

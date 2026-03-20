@@ -41,6 +41,7 @@
                        placeholder="Enter book number">
                 <div id="book-warning" class="hidden mt-2 p-3 bg-yellow-900/50 border border-yellow-600 rounded-md text-yellow-200 text-sm">
                     <strong>Warning:</strong> Book <span id="existing-book-number"></span> already exists (Collector: <span id="existing-collector"></span>).
+                    <span id="open-batch-warning" class="hidden"> &mdash; <strong>has an open batch in progress.</strong></span>
                 </div>
             </div>
 
@@ -77,6 +78,21 @@
         </form>
 
         <script>
+        (function() {
+            const dateOut = document.getElementById('date_out');
+            const dateBack = document.getElementById('date_back');
+
+            function syncDateMin() {
+                dateBack.min = dateOut.value;
+                if (dateBack.value && dateBack.value < dateOut.value) {
+                    dateBack.value = dateOut.value;
+                }
+            }
+
+            dateOut.addEventListener('change', syncDateMin);
+            syncDateMin();
+        })();
+
         (function() {
             const form = document.getElementById('session-form');
             const bookInput = document.getElementById('book_number');
@@ -117,6 +133,12 @@
                         if (data.exists) {
                             existingBookSpan.textContent = data.book_number;
                             existingCollectorSpan.textContent = data.collector;
+                            const openBatchWarning = document.getElementById('open-batch-warning');
+                            if (data.open_batches > 0) {
+                                openBatchWarning.classList.remove('hidden');
+                            } else {
+                                openBatchWarning.classList.add('hidden');
+                            }
                             warningDiv.classList.remove('hidden');
                             submitBtn.textContent = 'Continue Anyway';
                             submitBtn.classList.remove('bg-accent-500', 'hover:bg-accent-600');

@@ -43,8 +43,23 @@ def generate_petition_pdf(
     new_doc.close()
 
     pdf_bytes = out.getvalue()
-    page_count = (end_num - start_num + 1) * len(template_pages)
-    return pdf_bytes, page_count
+    expected_pages = (end_num - start_num + 1) * len(template_pages)
+
+    # Integrity check: re-open and verify page count
+    try:
+        check_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        actual_pages = len(check_doc)
+        check_doc.close()
+    except Exception as e:
+        raise ValueError(f"Generated PDF failed integrity check (could not be opened): {e}") from e
+
+    if actual_pages != expected_pages:
+        raise ValueError(
+            f"Generated PDF has {actual_pages} pages but expected {expected_pages}. "
+            "The output may be corrupt."
+        )
+
+    return pdf_bytes, expected_pages
 
 
 def get_highest_printed() -> int:

@@ -43,6 +43,10 @@ def start_session():
         flash("Please enter book number and select a collector", "error")
         return redirect(url_for("main.index"))
 
+    if date_back < date_out:
+        flash("Date In cannot be before Date Out.", "error")
+        return redirect(url_for("main.index"))
+
     # Find or create the book
     book = Book.query.filter_by(book_number=book_number).first()
     if not book:
@@ -93,10 +97,12 @@ def check_book():
 
     book = Book.query.filter_by(book_number=book_number).first()
     if book:
+        open_batches = [b for b in book.batches if b.status == "open"]
         return {
             "exists": True,
             "book_number": book.book_number,
             "collector": book.collector.display_name if book.collector else "Unknown",
+            "open_batches": len(open_batches),
         }
     return {"exists": False}
 
@@ -105,9 +111,15 @@ def check_book():
 @login_required
 def end_session():
     """End the current data entry session."""
+    batch_id = session.pop("batch_id", None)
     session.pop("book_id", None)
-    session.pop("batch_id", None)
     session.pop("book_number", None)
+
+    if batch_id:
+        batch = db.session.get(Batch, batch_id)
+        if batch:
+            batch.status = "complete"
+            db.session.commit()
 
     flash("Session ended", "info")
     return redirect(url_for("main.index"))

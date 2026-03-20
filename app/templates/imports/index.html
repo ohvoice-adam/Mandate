@@ -21,6 +21,9 @@
                     <option value="{{ county }}">{{ county }}</option>
                     {% endfor %}
                 </select>
+                <div id="county-replace-warning" class="hidden mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-600 rounded-md text-yellow-800 dark:text-yellow-300 text-sm">
+                    <strong>Warning:</strong> <span id="county-warning-text"></span>
+                </div>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     Existing voters for this county will be replaced.
                 </p>
@@ -220,6 +223,27 @@
     </div>
 </div>
 
+<!-- County replace warning script -->
+<script>
+(function() {
+    const loadedCounties = {{ loaded_counties | tojson }};
+    const countySelect = document.getElementById('county_name');
+    const warning = document.getElementById('county-replace-warning');
+    const warningText = document.getElementById('county-warning-text');
+
+    countySelect.addEventListener('change', function() {
+        const selected = countySelect.value;
+        const existing = loadedCounties.find(c => c.name === selected);
+        if (existing) {
+            warningText.textContent = existing.name + ' already has ' + existing.count.toLocaleString() + ' voters loaded. Uploading will replace them.';
+            warning.classList.remove('hidden');
+        } else {
+            warning.classList.add('hidden');
+        }
+    });
+})();
+</script>
+
 <!-- Upload progress script -->
 <script>
 (function() {
@@ -292,49 +316,97 @@
     const importCards = activeImports.querySelectorAll('[data-import-id]');
     if (importCards.length === 0) return;
 
+    const POLL_INTERVAL_MS   = 500;
+    const MAX_ERRORS         = 5;      // consecutive fetch failures before giving up
+    const STALL_TIMEOUT_MS   = 5 * 60 * 1000;  // 5 min without progress change
+
+    // Per-card state
+    const state = {};
+    importCards.forEach(function(card) {
+        state[card.dataset.importId] = {
+            errors: 0,
+            stopped: false,
+            lastRows: null,
+            lastProgressAt: Date.now(),
+        };
+    });
+
     function formatNumber(num) {
         return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
 
+    function showWarning(card, message) {
+        let warn = card.querySelector('.poll-warning');
+        if (!warn) {
+            warn = document.createElement('div');
+            warn.className = 'poll-warning mt-3 p-2 rounded text-sm bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-600 text-yellow-800 dark:text-yellow-300';
+            card.appendChild(warn);
+        }
+        warn.textContent = message;
+    }
+
     function updateImport(card, data) {
-        const progressBar = card.querySelector('.progress-bar');
-        const progressText = card.querySelector('.progress-text');
+        const importId = card.dataset.importId;
+        const s = state[importId];
+
+        const progressBar     = card.querySelector('.progress-bar');
+        const progressText    = card.querySelector('.progress-text');
         const progressPercent = card.querySelector('.progress-percent');
-        const statusBadge = card.querySelector('.status-badge');
+        const statusBadge     = card.querySelector('.status-badge');
 
-        if (progressBar) {
-            progressBar.style.width = data.percent + '%';
-        }
-        if (progressText) {
-            progressText.textContent = formatNumber(data.processed_rows) + ' / ' + formatNumber(data.total_rows) + ' rows';
-        }
-        if (progressPercent) {
-            progressPercent.textContent = data.percent + '%';
-        }
+        if (progressBar)     progressBar.style.width = data.percent + '%';
+        if (progressText)    progressText.textContent = formatNumber(data.processed_rows) + ' / ' + formatNumber(data.total_rows) + ' rows';
+        if (progressPercent) progressPercent.textContent = data.percent + '%';
 
-        // Update status badge
+        // Finished — reload to show final state
         if (statusBadge && data.status !== 'running' && data.status !== 'pending') {
-            // Reload page when import finishes
             window.location.reload();
+            return;
+        }
+
+        // Track progress changes for stall detection
+        if (data.processed_rows !== s.lastRows) {
+            s.lastRows = data.processed_rows;
+            s.lastProgressAt = Date.now();
+        } else if (Date.now() - s.lastProgressAt > STALL_TIMEOUT_MS) {
+            s.stopped = true;
+            showWarning(card, '⚠ Import appears stalled — no progress in 5 minutes. You may need to cancel and retry, or restart the server to recover it.');
         }
     }
+
+    let interval = null;
 
     function pollStatus() {
+        let anyActive = false;
+
         importCards.forEach(function(card) {
             const importId = card.dataset.importId;
+            const s = state[importId];
+            if (s.stopped) return;
+
+            anyActive = true;
+
             fetch('/imports/' + importId + '/status')
-                .then(response => response.json())
-                .then(data => {
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    s.errors = 0;
                     updateImport(card, data);
                 })
-                .catch(error => {
-                    console.error('Error polling import status:', error);
+                .catch(function(err) {
+                    s.errors++;
+                    if (s.errors >= MAX_ERRORS) {
+                        s.stopped = true;
+                        showWarning(card, '⚠ Lost connection to server after ' + MAX_ERRORS + ' retries. Reload the page to check import status.');
+                    }
                 });
         });
+
+        if (!anyActive) {
+            clearInterval(interval);
+        }
     }
 
-    // Poll every 500ms
-    setInterval(pollStatus, 500);
+    interval = setInterval(pollStatus, POLL_INTERVAL_MS);
 })();
 </script>
 {% endblock %}

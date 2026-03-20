@@ -1,7 +1,7 @@
 import base64
 from datetime import datetime
 
-from flask import Blueprint, Response, flash, redirect, render_template, request, url_for
+from flask import Blueprint, Response, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from app import db
@@ -101,10 +101,28 @@ def generate():
         flash("Cannot generate more than 500 books at once.", "error")
         return redirect(url_for("prints.index"))
 
+    overlapping = PetitionPrintJob.query.filter(
+        PetitionPrintJob.start_number <= end_number,
+        PetitionPrintJob.end_number >= start_number,
+    ).order_by(PetitionPrintJob.start_number).all()
+    if overlapping:
+        ranges = ", ".join(f"#{j.start_number:05d}–#{j.end_number:05d}" for j in overlapping)
+        flash(
+            f"Serial number range overlaps with existing job(s): {ranges}. "
+            "Choose a non-overlapping range or delete the conflicting job(s) first.",
+            "error",
+        )
+        return redirect(url_for("prints.index"))
+
     cover_bytes = get_cover_bytes()
     petition_bytes = get_petition_bytes()
 
-    pdf_bytes, page_count = generate_petition_pdf(cover_bytes, petition_bytes, start_number, end_number)
+    try:
+        pdf_bytes, page_count = generate_petition_pdf(cover_bytes, petition_bytes, start_number, end_number)
+    except Exception as e:
+        current_app.logger.exception("PDF generation failed for range %d–%d", start_number, end_number)
+        flash(f"PDF generation failed: {e}", "error")
+        return redirect(url_for("prints.index"))
 
     filename = f"petition-books-{start_number:05d}-{end_number:05d}-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}.pdf"
 

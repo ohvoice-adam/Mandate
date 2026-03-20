@@ -61,6 +61,12 @@ def record_match():
     if not voter:
         return {"error": "Voter not found"}, 404
 
+    dupe_in_batch = Signature.query.filter_by(batch_id=batch_id, sos_voterid=voter.sos_voterid).count() > 0
+    dupe_cross_batch = not dupe_in_batch and Signature.query.filter(
+        Signature.sos_voterid == voter.sos_voterid,
+        Signature.batch_id != batch_id,
+    ).count() > 0
+
     signature = Signature(
         book_id=book_id,
         batch_id=batch_id,
@@ -82,7 +88,9 @@ def record_match():
         "signatures/_success.html",
         message="Person Match recorded",
         voter=voter,
-        match_type="person"
+        match_type="person",
+        dupe_in_batch=dupe_in_batch,
+        dupe_cross_batch=dupe_cross_batch,
     )
 
 
@@ -101,6 +109,12 @@ def record_address_only():
 
     if not voter:
         return {"error": "Voter not found"}, 404
+
+    dupe_in_batch = Signature.query.filter_by(batch_id=batch_id, sos_voterid=voter.sos_voterid).count() > 0
+    dupe_cross_batch = not dupe_in_batch and Signature.query.filter(
+        Signature.sos_voterid == voter.sos_voterid,
+        Signature.batch_id != batch_id,
+    ).count() > 0
 
     signature = Signature(
         book_id=book_id,
@@ -123,8 +137,35 @@ def record_address_only():
         "signatures/_success.html",
         message="Address Only recorded",
         voter=voter,
-        match_type="address"
+        match_type="address",
+        dupe_in_batch=dupe_in_batch,
+        dupe_cross_batch=dupe_cross_batch,
     )
+
+
+@bp.route("/undo-last", methods=["POST"])
+@login_required
+def undo_last():
+    """Delete the most recently recorded signature in the current batch."""
+    batch_id = session.get("batch_id")
+
+    if not batch_id:
+        return {"error": "No active session"}, 400
+
+    last = (
+        Signature.query
+        .filter_by(batch_id=batch_id)
+        .order_by(Signature.id.desc())
+        .first()
+    )
+
+    if not last:
+        return render_template("signatures/_undo.html", undone=False)
+
+    db.session.delete(last)
+    db.session.commit()
+
+    return render_template("signatures/_undo.html", undone=True)
 
 
 @bp.route("/record-no-match", methods=["POST"])

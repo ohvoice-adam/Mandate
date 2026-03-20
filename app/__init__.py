@@ -1,4 +1,4 @@
-__version__ = "0.2.3"
+__version__ = "0.3.0"
 
 DEFAULT_PRIMARY = "#0c3e6b"
 DEFAULT_ACCENT = "#f56708"
@@ -89,6 +89,7 @@ def create_app(config_class=Config):
 
     @app.before_request
     def enforce_password_change():
+        from datetime import datetime
         from flask import request, redirect, url_for
         from flask_login import current_user
         if not current_user.is_authenticated:
@@ -97,6 +98,14 @@ def create_app(config_class=Config):
             request.endpoint.startswith("auth.") or request.endpoint == "static"
         ):
             return
+        # Track last activity for the health dashboard (throttle to once per minute)
+        try:
+            now = datetime.utcnow()
+            if current_user.last_seen is None or (now - current_user.last_seen).total_seconds() > 60:
+                current_user.last_seen = now
+                db.session.commit()
+        except Exception:
+            db.session.rollback()
         if current_user.must_change_password:
             return redirect(url_for("auth.change_password"))
 

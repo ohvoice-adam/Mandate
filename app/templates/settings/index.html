@@ -143,32 +143,77 @@
 
                 <div class="grid grid-cols-2 gap-6">
                     <div>
-                        <label for="branding_headline_font" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Headline Font
                         </label>
-                        <select name="branding_headline_font" id="branding_headline_font"
-                                class="block w-full rounded-md bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white px-3 py-2 text-sm focus:border-navy-500 focus:ring-navy-500">
+                        {# Hidden native select — still submitted with the form #}
+                        <select name="branding_headline_font" id="branding_headline_font" class="sr-only" aria-hidden="true" tabindex="-1">
                             {% for value, label in headline_font_options %}
                             <option value="{{ value }}" {% if value == branding_fonts.headline_font %}selected{% endif %}>{{ label }}</option>
                             {% endfor %}
                         </select>
+                        <div class="font-select-container relative" data-select="branding_headline_font" data-preview="preview-headline">
+                            <button type="button"
+                                    class="font-select-btn w-full flex items-center justify-between rounded-md bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-navy-500">
+                                <span class="font-select-label truncate">{{ branding_fonts.headline_font }}</span>
+                                <svg class="ml-2 h-4 w-4 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                </svg>
+                            </button>
+                            <div class="font-select-list hidden absolute z-30 w-full mt-1 max-h-60 overflow-y-auto rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl py-1">
+                                {% for value, label in headline_font_options %}
+                                <div class="font-select-item px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 {{ 'bg-navy-50 dark:bg-navy-900/30 text-navy-700 dark:text-navy-300' if value == branding_fonts.headline_font else 'text-gray-900 dark:text-white' }}"
+                                     data-value="{{ value }}"
+                                     data-spec="{{ font_specs[value] }}">{{ label }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
                     </div>
                     <div>
-                        <label for="branding_body_font" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Body Font
                         </label>
-                        <select name="branding_body_font" id="branding_body_font"
-                                class="block w-full rounded-md bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white px-3 py-2 text-sm focus:border-navy-500 focus:ring-navy-500">
+                        <select name="branding_body_font" id="branding_body_font" class="sr-only" aria-hidden="true" tabindex="-1">
                             {% for value, label in body_font_options %}
                             <option value="{{ value }}" {% if value == branding_fonts.body_font %}selected{% endif %}>{{ label }}</option>
                             {% endfor %}
                         </select>
+                        <div class="font-select-container relative" data-select="branding_body_font" data-preview="preview-body">
+                            <button type="button"
+                                    class="font-select-btn w-full flex items-center justify-between rounded-md bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-navy-500">
+                                <span class="font-select-label truncate">{{ branding_fonts.body_font }}</span>
+                                <svg class="ml-2 h-4 w-4 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                </svg>
+                            </button>
+                            <div class="font-select-list hidden absolute z-30 w-full mt-1 max-h-60 overflow-y-auto rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl py-1">
+                                {% for value, label in body_font_options %}
+                                <div class="font-select-item px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 {{ 'bg-navy-50 dark:bg-navy-900/30 text-navy-700 dark:text-navy-300' if value == branding_fonts.body_font else 'text-gray-900 dark:text-white' }}"
+                                     data-value="{{ value }}"
+                                     data-spec="{{ font_specs[value] }}">{{ label }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div id="font-preview" class="rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 p-4 space-y-1">
-                    <p id="preview-headline" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Headline: The quick brown fox</p>
+                <div id="font-preview" class="rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 p-4 space-y-2">
+                    <p id="preview-headline" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Headline: The quick brown fox jumps over the lazy dog</p>
                     <p id="preview-body" class="text-sm text-gray-600 dark:text-gray-400">Body: Pack my box with five dozen liquor jugs.</p>
+                    <div class="flex items-center gap-3 pt-1">
+                        <button type="button" id="preview-primary-btn"
+                                class="px-3 py-1.5 rounded text-white text-xs font-medium"
+                                style="background-color: {{ branding_config.primary_color or '#0c3e6b' }}">
+                            Primary button
+                        </button>
+                        <button type="button" id="preview-accent-btn"
+                                class="px-3 py-1.5 rounded text-white text-xs font-medium"
+                                style="background-color: {{ branding_config.accent_color or '#f56708' }}">
+                            Accent button
+                        </button>
+                        <span id="preview-link" class="text-xs font-medium underline cursor-default"
+                              style="color: {{ branding_config.primary_color or '#0c3e6b' }}">Sample link</span>
+                    </div>
                 </div>
             </div>
 
@@ -555,22 +600,65 @@
     </div>
 </div>
 
+<!-- Configuration Export / Import -->
+<div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Configuration Backup</h2>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">
+        Export all non-sensitive settings (excluding passwords, SSH keys, and the org logo) as a JSON file.
+        Use the same file to restore settings on another instance.
+    </p>
+
+    <div class="flex flex-col sm:flex-row gap-6">
+        <!-- Export -->
+        <div class="flex-1">
+            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Export</h3>
+            <a href="{{ url_for('settings.export_config') }}"
+               class="inline-block bg-navy-600 hover:bg-navy-700 text-white font-medium py-2 px-4 rounded-md text-sm">
+                ↓ Download Config JSON
+            </a>
+        </div>
+
+        <!-- Import -->
+        <div class="flex-1">
+            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Import</h3>
+            <form method="POST" action="{{ url_for('settings.import_config') }}" enctype="multipart/form-data"
+                  class="flex items-center gap-3 flex-wrap">
+                <input type="file" name="config_file" accept=".json,application/json"
+                       class="block text-sm text-gray-600 dark:text-gray-400
+                              file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0
+                              file:text-sm file:font-medium
+                              file:bg-gray-100 dark:file:bg-gray-700
+                              file:text-gray-700 dark:file:text-gray-200
+                              hover:file:bg-gray-200 dark:hover:file:bg-gray-600">
+                <button type="submit"
+                        class="bg-accent-500 hover:bg-accent-600 text-white font-medium py-2 px-4 rounded-md text-sm">
+                    ↑ Restore Config
+                </button>
+            </form>
+            <p class="mt-2 text-xs text-gray-400 dark:text-gray-500">
+                Passwords, SSH keys, and the org logo are never exported and will not be overwritten on import.
+            </p>
+        </div>
+    </div>
+</div>
+
 <script>
-// Live hex display for color pickers
+// ── Live color preview ──────────────────────────────────────────────────────
 document.getElementById('branding_primary_color').addEventListener('input', function() {
     document.getElementById('primary-hex-display').textContent = this.value;
+    document.getElementById('preview-primary-btn').style.backgroundColor = this.value;
+    document.getElementById('preview-link').style.color = this.value;
 });
 document.getElementById('branding_accent_color').addEventListener('input', function() {
     document.getElementById('accent-hex-display').textContent = this.value;
+    document.getElementById('preview-accent-btn').style.backgroundColor = this.value;
 });
 
-// Font preview
+// ── Font loading helper ──────────────────────────────────────────────────────
 const FONT_SPECS = {{ font_specs | tojson }};
 
-function loadAndPreviewFont(fontName, elementId) {
-    const spec = FONT_SPECS[fontName];
-    if (!spec) return;
-    const linkId = 'preview-font-' + fontName.replace(/\s+/g, '-');
+function loadFont(spec) {
+    const linkId = 'gf-' + spec.substring(0, 40).replace(/[^a-z0-9]/gi, '-');
     if (!document.getElementById(linkId)) {
         const link = document.createElement('link');
         link.id = linkId;
@@ -578,19 +666,72 @@ function loadAndPreviewFont(fontName, elementId) {
         link.href = 'https://fonts.googleapis.com/css2?family=' + spec + '&display=swap';
         document.head.appendChild(link);
     }
-    document.getElementById(elementId).style.fontFamily = "'" + fontName + "', serif";
 }
 
-document.getElementById('branding_headline_font').addEventListener('change', function() {
-    loadAndPreviewFont(this.value, 'preview-headline');
-});
-document.getElementById('branding_body_font').addEventListener('change', function() {
-    loadAndPreviewFont(this.value, 'preview-body');
+function applyFont(fontName, elementId) {
+    const spec = FONT_SPECS[fontName];
+    if (spec) loadFont(spec);
+    document.getElementById(elementId).style.fontFamily = "'" + fontName + "', system-ui, sans-serif";
+}
+
+// ── Custom font dropdowns ────────────────────────────────────────────────────
+document.querySelectorAll('.font-select-container').forEach(function(container) {
+    const btn      = container.querySelector('.font-select-btn');
+    const label    = container.querySelector('.font-select-label');
+    const list     = container.querySelector('.font-select-list');
+    const selectEl = document.getElementById(container.dataset.select);
+    const previewId = container.dataset.preview;
+
+    // Style the trigger label in the currently selected font on load
+    applyFont(selectEl.value, previewId);
+    label.style.fontFamily = "'" + selectEl.value + "', system-ui, sans-serif";
+
+    btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const isOpen = !list.classList.contains('hidden');
+
+        // Close all other open dropdowns
+        document.querySelectorAll('.font-select-list').forEach(l => l.classList.add('hidden'));
+
+        if (!isOpen) {
+            list.classList.remove('hidden');
+            // Lazy-load all fonts in this list when opened
+            list.querySelectorAll('.font-select-item').forEach(function(item) {
+                const spec = item.dataset.spec;
+                if (spec) {
+                    loadFont(spec);
+                    item.style.fontFamily = "'" + item.dataset.value + "', system-ui, sans-serif";
+                }
+            });
+        }
+    });
+
+    list.addEventListener('click', function(e) {
+        const item = e.target.closest('.font-select-item');
+        if (!item) return;
+
+        const value = item.dataset.value;
+        selectEl.value = value;
+        label.textContent = value;
+        label.style.fontFamily = "'" + value + "', system-ui, sans-serif";
+        applyFont(value, previewId);
+
+        // Update active highlight
+        list.querySelectorAll('.font-select-item').forEach(function(i) {
+            i.classList.remove('bg-navy-50', 'dark:bg-navy-900/30', 'text-navy-700', 'dark:text-navy-300');
+            i.classList.add('text-gray-900', 'dark:text-white');
+        });
+        item.classList.add('bg-navy-50', 'text-navy-700');
+        item.classList.remove('text-gray-900', 'dark:text-white');
+
+        list.classList.add('hidden');
+    });
 });
 
-// Init preview with currently saved fonts
-loadAndPreviewFont({{ branding_fonts.headline_font | tojson }}, 'preview-headline');
-loadAndPreviewFont({{ branding_fonts.body_font | tojson }}, 'preview-body');
+// Close dropdowns on outside click
+document.addEventListener('click', function() {
+    document.querySelectorAll('.font-select-list').forEach(l => l.classList.add('hidden'));
+});
 
 async function testSmtp() {
     const btn = document.getElementById('test-smtp-btn');

@@ -1,33 +1,41 @@
 {% extends "base.html" %}
 
-{% block title %}Enterer Stats - {{ branding.org_name or "Mandate" }}{% endblock %}
+{% block title %}Collector Stats - {{ branding.org_name or "Mandate" }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
     <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold">Data Enterer Performance</h1>
+        <h1 class="text-2xl font-bold">Collector Quality Metrics</h1>
         <a href="{{ url_for('stats.index') }}" class="text-navy-600 dark:text-navy-400 hover:text-navy-800 dark:hover:text-navy-300">
             &larr; Back to Overview
         </a>
     </div>
 
+    <p class="text-sm text-gray-500 dark:text-gray-400">
+        <strong>Match %</strong> — signatures matched to a voter record.
+        <strong>Unmatched %</strong> — signatures with no voter match (likely invalid).
+        <strong>Duplicate %</strong> — matched signatures whose voter also appears in another book (cross-book duplicates, as % of matched).
+    </p>
+
     <div class="bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-sm">
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
             <thead class="bg-gray-50 dark:bg-gray-900">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Collector</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Organization</th>
                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Books</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Sigs</th>
                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Matched</th>
                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Match %</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Unmatched</th>
                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Unmatched %</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Duplicate %</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                 {% for stat in stats %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td class="px-6 py-3 whitespace-nowrap font-medium">{{ stat.name or 'Unknown' }}</td>
+                    <td class="px-6 py-3 whitespace-nowrap font-medium">{{ stat.name }}</td>
+                    <td class="px-6 py-3 whitespace-nowrap text-gray-500 dark:text-gray-400">{{ stat.organization }}</td>
                     <td class="px-6 py-3 whitespace-nowrap text-right text-gray-500 dark:text-gray-400">{{ stat.books }}</td>
                     <td class="px-6 py-3 whitespace-nowrap text-right font-medium">{{ "{:,}".format(stat.total) }}</td>
                     <td class="px-6 py-3 whitespace-nowrap text-right text-green-700 dark:text-green-400">{{ "{:,}".format(stat.matched) }}</td>
@@ -39,7 +47,6 @@
                             {{ stat.match_pct }}%
                         </span>
                     </td>
-                    <td class="px-6 py-3 whitespace-nowrap text-right text-gray-500 dark:text-gray-400">{{ "{:,}".format(stat.unmatched) }}</td>
                     <td class="px-6 py-3 whitespace-nowrap text-right">
                         {% if stat.unmatched_pct > 20 %}
                         <span class="font-medium text-red-600 dark:text-red-400">{{ stat.unmatched_pct }}%</span>
@@ -47,15 +54,34 @@
                         <span class="text-gray-500 dark:text-gray-400">{{ stat.unmatched_pct }}%</span>
                         {% endif %}
                     </td>
+                    <td class="px-6 py-3 whitespace-nowrap text-right">
+                        {% if stat.duplicate_pct > 10 %}
+                        <span class="font-medium text-yellow-600 dark:text-yellow-400">{{ stat.duplicate_pct }}%</span>
+                        {% elif stat.duplicate_pct > 0 %}
+                        <span class="text-gray-500 dark:text-gray-400">{{ stat.duplicate_pct }}%</span>
+                        {% else %}
+                        <span class="text-gray-400">—</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="7" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                        No data entry activity yet.
+                    <td colspan="8" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                        No collector data yet.
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
+            {% if stats %}
+            <tfoot class="bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+                <tr class="text-xs text-gray-500 dark:text-gray-400">
+                    <td colspan="3" class="px-6 py-2 font-medium">{{ stats|length }} collector{% if stats|length != 1 %}s{% endif %}</td>
+                    <td class="px-6 py-2 text-right font-medium text-gray-700 dark:text-gray-300">{{ "{:,}".format(stats|sum(attribute='total')) }}</td>
+                    <td class="px-6 py-2 text-right font-medium text-green-700 dark:text-green-400">{{ "{:,}".format(stats|sum(attribute='matched')) }}</td>
+                    <td colspan="3"></td>
+                </tr>
+            </tfoot>
+            {% endif %}
         </table>
     </div>
 </div>

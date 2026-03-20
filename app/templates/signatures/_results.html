@@ -38,14 +38,16 @@
                 <td class="px-4 py-3 whitespace-nowrap text-sm">{{ voter.city }}</td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm">{{ voter.residential_zip }}</td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm space-x-2">
-                    <button hx-post="{{ url_for('signatures.record_match') }}"
+                    <button data-action="match"
+                            hx-post="{{ url_for('signatures.record_match') }}"
                             hx-vals='{"voter_id": "{{ voter.id }}"}'
                             hx-target="#search-results"
                             hx-swap="innerHTML"
                             class="bg-green-600 hover:bg-green-700 text-white text-xs font-medium py-1 px-3 rounded">
                         Person Match
                     </button>
-                    <button hx-post="{{ url_for('signatures.record_address_only') }}"
+                    <button data-action="address-only"
+                            hx-post="{{ url_for('signatures.record_address_only') }}"
                             hx-vals='{"voter_id": "{{ voter.id }}"}'
                             hx-target="#search-results"
                             hx-swap="innerHTML"

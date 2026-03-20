@@ -133,24 +133,98 @@ class StatsService:
 
     @staticmethod
     def get_enterer_stats() -> list[dict]:
-        """Get statistics per data enterer."""
+        """Get statistics per data enterer including quality metrics."""
         sql = text("""
             SELECT
-                enterer_first || ' ' || enterer_last as name,
-                count(distinct(book_number)) as books,
-                count(distinct(sos_voterid)) as signatures
-            FROM batches b
-            LEFT JOIN signatures s ON b.id = s.batch_id
+                bat.enterer_first || ' ' || bat.enterer_last AS name,
+                COUNT(DISTINCT bat.book_number)              AS books,
+                COUNT(s.id)                                  AS total,
+                SUM(CASE WHEN s.matched THEN 1 ELSE 0 END)      AS matched,
+                SUM(CASE WHEN NOT s.matched THEN 1 ELSE 0 END) AS unmatched
+            FROM batches bat
+            LEFT JOIN signatures s ON bat.id = s.batch_id
             GROUP BY 1
             ORDER BY 3 DESC
         """)
 
-        result = db.session.execute(sql).fetchall()
+        rows = db.session.execute(sql).fetchall()
 
-        return [
-            {"name": row.name, "books": row.books, "signatures": row.signatures}
-            for row in result
-        ]
+        result = []
+        for row in rows:
+            total    = row.total or 0
+            matched  = int(row.matched or 0)
+            unmatched = int(row.unmatched or 0)
+            result.append({
+                "name":           row.name,
+                "books":          row.books or 0,
+                "total":          total,
+                "matched":        matched,
+                "unmatched":      unmatched,
+                "match_pct":      round(matched  * 100 / total, 1) if total else 0,
+                "unmatched_pct":  round(unmatched * 100 / total, 1) if total else 0,
+            })
+        return result
+
+    @staticmethod
+    def get_collector_stats() -> list[dict]:
+        """Get per-collector quality metrics: match rate and cross-book duplicate rate."""
+        sql = text("""
+            WITH book_voters AS (
+                SELECT b.id AS book_id, b.collector_id, s.sos_voterid
+                FROM books b
+                JOIN signatures s ON s.book_id = b.id
+                WHERE s.sos_voterid IS NOT NULL AND s.sos_voterid <> ''
+                  AND s.matched = TRUE
+                GROUP BY b.id, b.collector_id, s.sos_voterid
+            ),
+            global_dupes AS (
+                SELECT sos_voterid
+                FROM book_voters
+                GROUP BY sos_voterid
+                HAVING COUNT(DISTINCT book_id) > 1
+            )
+            SELECT
+                c.id,
+                c.first_name || ' ' || c.last_name          AS collector_name,
+                COALESCE(o.name, 'No Organization')          AS organization,
+                COUNT(DISTINCT b.id)                         AS books,
+                COUNT(s.id)                                  AS total_signatures,
+                SUM(CASE WHEN s.matched THEN 1 ELSE 0 END)  AS matched_count,
+                SUM(CASE WHEN NOT s.matched THEN 1 ELSE 0 END) AS unmatched_count,
+                COUNT(DISTINCT CASE WHEN gd.sos_voterid IS NOT NULL
+                                    THEN s.sos_voterid END)  AS duplicate_voters
+            FROM collectors c
+            LEFT JOIN organizations o  ON o.id = c.organization_id
+            LEFT JOIN books b          ON b.collector_id = c.id
+            LEFT JOIN signatures s     ON s.book_id = b.id
+            LEFT JOIN global_dupes gd  ON gd.sos_voterid = s.sos_voterid
+            GROUP BY c.id, collector_name, organization
+            HAVING COUNT(s.id) > 0
+            ORDER BY total_signatures DESC NULLS LAST
+        """)
+
+        rows = db.session.execute(sql).fetchall()
+
+        result = []
+        for row in rows:
+            total    = row.total_signatures or 0
+            matched  = int(row.matched_count or 0)
+            unmatched = int(row.unmatched_count or 0)
+            dupes    = int(row.duplicate_voters or 0)
+            result.append({
+                "id":             row.id,
+                "name":           row.collector_name,
+                "organization":   row.organization,
+                "books":          row.books or 0,
+                "total":          total,
+                "matched":        matched,
+                "unmatched":      unmatched,
+                "duplicates":     dupes,
+                "match_pct":      round(matched   * 100 / total, 1) if total else 0,
+                "unmatched_pct":  round(unmatched * 100 / total, 1) if total else 0,
+                "duplicate_pct":  round(dupes     * 100 / matched, 1) if matched else 0,
+            })
+        return result
 
     @staticmethod
     def get_book_stats(sort: str = "book_number", direction: str = "desc") -> list[dict]:
@@ -163,7 +237,9 @@ class StatsService:
         dir_sql = "DESC" if direction != "asc" else "ASC"
         nulls = "NULLS LAST" if dir_sql == "DESC" else "NULLS FIRST"
 
-        if sort == "entry_time":
+        if sort == "last_activity":
+            order_clause = f"last_entry_at {dir_sql} {nulls}"
+        elif sort == "entry_time":
             order_clause = f"first_entry_at {dir_sql} {nulls}"
         else:
             # Numeric sort for all-digit book numbers, string fallback
@@ -180,6 +256,8 @@ class StatsService:
                 b.date_out,
                 b.date_back,
                 MIN(bat.created_at) AS first_entry_at,
+                MAX(bat.created_at) AS last_entry_at,
+                SUM(CASE WHEN bat.status = 'open' THEN 1 ELSE 0 END) AS open_batches,
                 COUNT(s.id) AS total_signatures,
                 SUM(CASE WHEN s.matched IS TRUE THEN 1 ELSE 0 END) AS matched_count,
                 ROUND(
@@ -205,6 +283,8 @@ class StatsService:
                 "date_out": row.date_out,
                 "date_back": row.date_back,
                 "first_entry_at": row.first_entry_at,
+                "last_entry_at": row.last_entry_at,
+                "open_batches": int(row.open_batches or 0),
                 "total_signatures": row.total_signatures or 0,
                 "matched_count": int(row.matched_count or 0),
                 "validity_rate": float(row.validity_rate or 0),

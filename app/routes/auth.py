@@ -21,6 +21,9 @@ def login():
         user = User.query.filter_by(email=email).first()
 
         if user and user.check_password(password):
+            if not user.is_active:
+                flash("Your account has been deactivated. Please contact an administrator.", "error")
+                return render_template("auth/login.html")
             login_user(user)
             if user.must_change_password:
                 return redirect(url_for("auth.change_password"))

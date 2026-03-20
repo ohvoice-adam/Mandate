@@ -1,0 +1,21 @@
+<div class="text-center py-8">
+    {% if undone %}
+    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full mb-3 bg-yellow-500/20 text-yellow-400">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
+        </svg>
+    </div>
+    <p class="text-yellow-400 font-medium">Last entry removed</p>
+    {% else %}
+    <p class="text-gray-400">Nothing to undo</p>
+    {% endif %}
+</div>
+
+<script>
+(function() {
+    const input = document.getElementById('address-search');
+    input.value = '';
+    input.focus();
+})();
+</script>

@@ -15,6 +15,7 @@ class Batch(db.Model):
     enterer_last = db.Column(db.String(100))
     enterer_email = db.Column(db.String(120))
     date_entered = db.Column(db.Date)
+    status = db.Column(db.String(20), nullable=False, default="open")
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
     # Relationships

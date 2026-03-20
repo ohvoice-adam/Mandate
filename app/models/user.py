@@ -30,8 +30,18 @@ class User(UserMixin, db.Model):
     last_name = db.Column(db.String(100))
     role = db.Column(db.String(20), default=UserRole.ENTERER, nullable=False)
     organization_id = db.Column(db.Integer, db.ForeignKey("organizations.id"), nullable=True)
-    is_active = db.Column(db.Boolean, default=True)
+    _is_active = db.Column("is_active", db.Boolean, default=True)
     must_change_password = db.Column(db.Boolean, default=False, nullable=False)
+    last_seen = db.Column(db.DateTime, nullable=True)
+
+    @property
+    def is_active(self):
+        return bool(self._is_active)
+
+    @is_active.setter
+    def is_active(self, value):
+        self._is_active = value
+
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
     # Relationships

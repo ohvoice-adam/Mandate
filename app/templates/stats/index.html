@@ -10,6 +10,9 @@
             <a href="{{ url_for('stats.books') }}" class="text-navy-600 dark:text-navy-400 hover:text-navy-800 dark:hover:text-navy-300">
                 Books
             </a>
+            <a href="{{ url_for('stats.collectors') }}" class="text-navy-600 dark:text-navy-400 hover:text-navy-800 dark:hover:text-navy-300">
+                Collector Quality
+            </a>
             <a href="{{ url_for('stats.enterers') }}" class="text-navy-600 dark:text-navy-400 hover:text-navy-800 dark:hover:text-navy-300">
                 Enterer Stats
             </a>
@@ -17,17 +20,52 @@
                 Organization Stats
             </a>
             {% if current_user.is_admin_or_organizer %}
-            <a href="{{ url_for('stats.export_matched_csv') }}"
-               class="bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-1.5 px-3 rounded-md">
-                ↓ Download Matched CSV
-            </a>
-            <a href="{{ url_for('stats.export_duplicates_csv') }}"
-               class="bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium py-1.5 px-3 rounded-md">
-                ↓ Download Duplicates CSV
-            </a>
+            <button type="button" id="export-filter-toggle"
+                    class="text-sm text-navy-600 dark:text-navy-400 hover:text-navy-800 dark:hover:text-navy-300 underline">
+                ↓ Export CSV
+            </button>
             {% endif %}
         </div>
     </div>
+
+    {% if current_user.is_admin_or_organizer %}
+    <!-- Export filter panel -->
+    <div id="export-filter-panel" class="hidden bg-white dark:bg-gray-800 rounded-lg p-5 shadow-sm border border-gray-200 dark:border-gray-700">
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Export Filters <span class="font-normal text-gray-500 dark:text-gray-400">(all fields optional — leave blank to export everything)</span></h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div>
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Date From</label>
+                <input type="date" id="ef-date-from"
+                       class="block w-full rounded-md bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white px-3 py-1.5 text-sm focus:border-navy-500 focus:ring-navy-500">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Date To</label>
+                <input type="date" id="ef-date-to"
+                       class="block w-full rounded-md bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white px-3 py-1.5 text-sm focus:border-navy-500 focus:ring-navy-500">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Collector</label>
+                <select id="ef-collector"
+                        class="block w-full rounded-md bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white px-3 py-1.5 text-sm focus:border-navy-500 focus:ring-navy-500">
+                    <option value="">All collectors</option>
+                    {% for c in collectors %}
+                    <option value="{{ c.id }}">{{ c.display_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <a id="ef-matched-link" href="{{ url_for('stats.export_matched_csv') }}"
+               class="bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-1.5 px-4 rounded-md">
+                ↓ Download Matched CSV
+            </a>
+            <a id="ef-duplicates-link" href="{{ url_for('stats.export_duplicates_csv') }}"
+               class="bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium py-1.5 px-4 rounded-md">
+                ↓ Download Duplicates CSV
+            </a>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Target city indicator -->
     <div class="bg-navy-50 dark:bg-navy-900/20 border border-navy-200 dark:border-navy-800 rounded-lg p-4">
@@ -139,4 +177,37 @@
         </div>
     </div>
 </div>
+
+{% if current_user.is_admin_or_organizer %}
+<script>
+(function() {
+    const toggle   = document.getElementById('export-filter-toggle');
+    const panel    = document.getElementById('export-filter-panel');
+    const dateFrom = document.getElementById('ef-date-from');
+    const dateTo   = document.getElementById('ef-date-to');
+    const collector = document.getElementById('ef-collector');
+    const matchedLink    = document.getElementById('ef-matched-link');
+    const duplicatesLink = document.getElementById('ef-duplicates-link');
+
+    const BASE_MATCHED    = '{{ url_for("stats.export_matched_csv") }}';
+    const BASE_DUPLICATES = '{{ url_for("stats.export_duplicates_csv") }}';
+
+    toggle.addEventListener('click', function() {
+        panel.classList.toggle('hidden');
+    });
+
+    function updateLinks() {
+        const params = new URLSearchParams();
+        if (dateFrom.value)   params.set('date_from',    dateFrom.value);
+        if (dateTo.value)     params.set('date_to',      dateTo.value);
+        if (collector.value)  params.set('collector_id', collector.value);
+        const qs = params.toString() ? '?' + params.toString() : '';
+        matchedLink.href    = BASE_MATCHED    + qs;
+        duplicatesLink.href = BASE_DUPLICATES + qs;
+    }
+
+    [dateFrom, dateTo, collector].forEach(el => el.addEventListener('change', updateLinks));
+})();
+</script>
+{% endif %}
 {% endblock %}

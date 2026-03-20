@@ -51,6 +51,12 @@
                     <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider">
                         {{ sort_link('entry_time', 'First Entry') }}
                     </th>
+                    <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider">
+                        {{ sort_link('last_activity', 'Last Activity') }}
+                    </th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Status
+                    </th>
                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Signatures
                     </th>
@@ -83,6 +89,26 @@
                             —
                         {% endif %}
                     </td>
+                    <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-500 dark:text-gray-400">
+                        {% if book.last_entry_at %}
+                            {{ book.last_entry_at.strftime('%Y-%m-%d %H:%M') }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-3 whitespace-nowrap text-center text-xs">
+                        {% if book.open_batches > 0 %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium">
+                            In Progress
+                        </span>
+                        {% elif book.total_signatures > 0 %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-medium">
+                            Complete
+                        </span>
+                        {% else %}
+                        <span class="text-gray-400">—</span>
+                        {% endif %}
+                    </td>
                     <td class="px-6 py-3 whitespace-nowrap text-right font-medium">
                         {{ "{:,}".format(book.total_signatures) }}
                     </td>
@@ -104,7 +130,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="7" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                    <td colspan="9" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                         No books have been entered yet.
                     </td>
                 </tr>

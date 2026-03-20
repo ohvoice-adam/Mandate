@@ -33,6 +33,7 @@
                        hx-indicator="#search-spinner">
             </div>
             <button type="button"
+                    data-action="no-match"
                     hx-post="{{ url_for('signatures.record_no_match') }}"
                     hx-target="#search-results"
                     hx-swap="innerHTML"
@@ -55,22 +56,127 @@
     </div>
 </div>
 
-<script>
-// Focus search input on page load
-document.getElementById('address-search').focus();
+<style>
+.kb-row-highlight { background-color: rgb(219 234 254 / 0.6); outline: 2px solid rgb(59 130 246 / 0.5); outline-offset: -2px; }
+.dark .kb-row-highlight { background-color: rgb(30 58 138 / 0.3); outline-color: rgb(96 165 250 / 0.5); }
+</style>
 
-// Clear search and refocus after recording
-document.body.addEventListener('htmx:afterSwap', function(event) {
-    if (event.detail.target.id === 'search-results') {
-        // Check if this was a success response
-        const successEl = event.detail.target.querySelector('[data-success]');
-        if (successEl) {
-            // Clear and refocus the search input
-            const searchInput = document.getElementById('address-search');
-            searchInput.value = '';
-            searchInput.focus();
+<script>
+(function() {
+    const searchInput = document.getElementById('address-search');
+    let highlightedRow = -1;
+
+    searchInput.focus();
+
+    function getRows() {
+        return Array.from(document.querySelectorAll('#search-results tbody tr'));
+    }
+
+    function setHighlight(idx) {
+        const rows = getRows();
+        rows.forEach(r => r.classList.remove('kb-row-highlight'));
+        if (idx >= 0 && idx < rows.length) {
+            rows[idx].classList.add('kb-row-highlight');
+            rows[idx].scrollIntoView({ block: 'nearest' });
+            highlightedRow = idx;
+        } else {
+            highlightedRow = -1;
         }
     }
-});
+
+    function clearHighlight() {
+        getRows().forEach(r => r.classList.remove('kb-row-highlight'));
+        highlightedRow = -1;
+    }
+
+    // Reset highlight whenever new results load
+    document.body.addEventListener('htmx:afterSwap', function(event) {
+        if (event.detail.target.id === 'search-results') {
+            clearHighlight();
+            const successEl = event.detail.target.querySelector('[data-success]');
+            if (successEl) {
+                searchInput.value = '';
+                searchInput.focus();
+            }
+        }
+    });
+
+    document.addEventListener('keydown', function(e) {
+        // Never intercept modifier combos
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+        const rows = getRows();
+        const inSearch = document.activeElement === searchInput;
+
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                if (rows.length === 0) return;
+                setHighlight(inSearch ? 0 : Math.min(highlightedRow + 1, rows.length - 1));
+                break;
+
+            case 'ArrowUp':
+                e.preventDefault();
+                if (highlightedRow <= 0) {
+                    clearHighlight();
+                    searchInput.focus();
+                } else {
+                    setHighlight(highlightedRow - 1);
+                }
+                break;
+
+            case 'Enter':
+            case 'm':
+                if (inSearch) return; // let Enter behave normally in search field
+                if (highlightedRow >= 0 && highlightedRow < rows.length) {
+                    e.preventDefault();
+                    rows[highlightedRow].querySelector('[data-action="match"]')?.click();
+                }
+                break;
+
+            case 'a':
+                if (inSearch) return;
+                if (highlightedRow >= 0 && highlightedRow < rows.length) {
+                    e.preventDefault();
+                    rows[highlightedRow].querySelector('[data-action="address-only"]')?.click();
+                }
+                break;
+
+            case 'n':
+                // No Match — only when search field is focused and empty
+                if (inSearch && searchInput.value === '') {
+                    e.preventDefault();
+                    document.querySelector('[data-action="no-match"]')?.click();
+                }
+                break;
+
+            case 'u':
+                if (!inSearch) {
+                    const undoBtn = document.querySelector('[data-action="undo"]');
+                    if (undoBtn) { e.preventDefault(); undoBtn.click(); }
+                }
+                break;
+
+            case 'Escape':
+                e.preventDefault();
+                clearHighlight();
+                searchInput.value = '';
+                searchInput.focus();
+                // Trigger htmx to clear results by dispatching input event
+                searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                break;
+        }
+    });
+})();
 </script>
+
+<!-- Keyboard shortcut hint strip -->
+<div class="mt-4 text-xs text-gray-400 dark:text-gray-500 flex flex-wrap gap-x-4 gap-y-1 select-none">
+    <span><kbd class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">↓↑</kbd> navigate rows</span>
+    <span><kbd class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">Enter</kbd> / <kbd class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">m</kbd> person match</span>
+    <span><kbd class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">a</kbd> address only</span>
+    <span><kbd class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">n</kbd> no match <span class="text-gray-300 dark:text-gray-600">(search empty)</span></span>
+    <span><kbd class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">u</kbd> undo</span>
+    <span><kbd class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">Esc</kbd> clear</span>
+</div>
 {% endblock %}

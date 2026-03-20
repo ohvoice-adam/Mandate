@@ -8,8 +8,50 @@ from sqlalchemy import text
 
 from app import db
 from app.models import Settings
+from app.models.collector import Collector
 from app.models.user import organizer_required
 from app.services import StatsService
+
+
+def _export_filters():
+    """Parse and validate common export filter params. Returns (filters_sql, params, label)."""
+    date_from    = request.args.get("date_from", "").strip()
+    date_to      = request.args.get("date_to", "").strip()
+    collector_id = request.args.get("collector_id", "").strip()
+
+    conditions = []
+    params = {}
+    label_parts = []
+
+    if date_from:
+        try:
+            date.fromisoformat(date_from)
+            conditions.append("s.created_at::date >= :date_from")
+            params["date_from"] = date_from
+            label_parts.append(f"from-{date_from}")
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            date.fromisoformat(date_to)
+            conditions.append("s.created_at::date <= :date_to")
+            params["date_to"] = date_to
+            label_parts.append(f"to-{date_to}")
+        except ValueError:
+            pass
+
+    if collector_id:
+        try:
+            params["collector_id"] = int(collector_id)
+            conditions.append("c.id = :collector_id")
+            label_parts.append(f"collector-{collector_id}")
+        except ValueError:
+            pass
+
+    extra_sql = (" AND " + " AND ".join(conditions)) if conditions else ""
+    label = ("-" + "-".join(label_parts)) if label_parts else ""
+    return extra_sql, params, label
 
 bp = Blueprint("stats", __name__)
 
@@ -20,7 +62,8 @@ def index():
     """Main statistics dashboard."""
     progress = StatsService.get_progress_stats()
     signature_goal = Settings.get_signature_goal()
-    return render_template("stats/index.html", progress=progress, signature_goal=signature_goal)
+    collectors = Collector.query.order_by(Collector.last_name, Collector.first_name).all()
+    return render_template("stats/index.html", progress=progress, signature_goal=signature_goal, collectors=collectors)
 
 
 @bp.route("/enterers")
@@ -29,6 +72,14 @@ def enterers():
     """Data enterer performance statistics."""
     enterer_stats = StatsService.get_enterer_stats()
     return render_template("stats/enterers.html", stats=enterer_stats)
+
+
+@bp.route("/collectors")
+@login_required
+def collectors():
+    """Per-collector quality metrics."""
+    collector_stats = StatsService.get_collector_stats()
+    return render_template("stats/collectors.html", stats=collector_stats)
 
 
 @bp.route("/organizations")
@@ -45,8 +96,9 @@ def export_matched_csv():
     """Download matched signatures as a CSV including sos_voterid and voter names."""
     from app.models import Settings
     city_pattern = Settings.get_target_city_pattern()
+    extra_sql, extra_params, label = _export_filters()
 
-    rows = db.session.execute(text("""
+    rows = db.session.execute(text(f"""
         SELECT
             s.sos_voterid,
             v.first_name,
@@ -64,9 +116,6 @@ def export_matched_csv():
             c.last_name   AS collector_last,
             s.created_at
         FROM (
-            -- Mirror the stats deduplication: one row per (sos_voterid, batch_id),
-            -- preferring matched=TRUE then lowest id, so the CSV row count matches
-            -- the stats page totals.
             SELECT DISTINCT ON (sos_voterid, batch_id) *
             FROM signatures
             WHERE sos_voterid IS NOT NULL AND sos_voterid <> ''
@@ -75,9 +124,9 @@ def export_matched_csv():
         LEFT JOIN voters     v ON v.sos_voterid = s.sos_voterid
         LEFT JOIN books      b ON b.id = s.book_id
         LEFT JOIN collectors c ON c.id = b.collector_id
-        WHERE s.matched = TRUE
+        WHERE s.matched = TRUE{extra_sql}
         ORDER BY b.book_number, s.id
-    """), {"city_pattern": city_pattern}).fetchall()
+    """), {"city_pattern": city_pattern, **extra_params}).fetchall()
 
     buf = io.StringIO()
     writer = csv.writer(buf)
@@ -124,7 +173,7 @@ def export_matched_csv():
             r.created_at.strftime("%Y-%m-%d %H:%M") if r.created_at else "",
         ])
 
-    filename = f"matched-signatures-{date.today()}.csv"
+    filename = f"matched-signatures-{date.today()}{label}.csv"
     return Response(
         buf.getvalue(),
         mimetype="text/csv",
@@ -136,7 +185,9 @@ def export_matched_csv():
 @organizer_required
 def export_duplicates_csv():
     """Download voters whose sos_voterid appears in more than one book."""
-    rows = db.session.execute(text("""
+    extra_sql, extra_params, label = _export_filters()
+
+    rows = db.session.execute(text(f"""
         SELECT
             s.sos_voterid,
             v.first_name,
@@ -172,9 +223,9 @@ def export_duplicates_csv():
             ) deduped
             GROUP BY sos_voterid
             HAVING COUNT(DISTINCT book_id) > 1
-        )
+        ){extra_sql}
         ORDER BY v.last_name, v.first_name, s.sos_voterid, b.book_number
-    """)).fetchall()
+    """), extra_params).fetchall()
 
     buf = io.StringIO()
     writer = csv.writer(buf)
@@ -217,7 +268,7 @@ def export_duplicates_csv():
             r.created_at.strftime("%Y-%m-%d %H:%M") if r.created_at else "",
         ])
 
-    filename = f"duplicate-signatures-{date.today()}.csv"
+    filename = f"duplicate-signatures-{date.today()}{label}.csv"
     return Response(
         buf.getvalue(),
         mimetype="text/csv",
@@ -230,7 +281,7 @@ def export_duplicates_csv():
 def books():
     """Per-book signature counts and validity rates."""
     sort = request.args.get("sort", "book_number")
-    if sort not in ("book_number", "entry_time"):
+    if sort not in ("book_number", "entry_time", "last_activity"):
         sort = "book_number"
 
     direction = request.args.get("dir", "desc")
