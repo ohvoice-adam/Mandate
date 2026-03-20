@@ -750,7 +750,10 @@ async function testSmtp() {
     result.classList.remove('hidden');
 
     try {
-        const resp = await fetch('{{ url_for("settings.test_smtp") }}', { method: 'POST' });
+        const resp = await fetch('{{ url_for("settings.test_smtp") }}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token() }}' },
+        });
         let data;
         try {
             data = await resp.json();
@@ -791,6 +794,7 @@ async function testBackupConnection() {
     try {
         const resp = await fetch('{{ url_for("settings.test_backup_connection") }}', {
             method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token() }}' },
             body: body,
             signal: controller.signal,
         });
