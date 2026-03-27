@@ -79,5 +79,14 @@
             </a>
         </div>
     </form>
+
+    <form method="POST" action="{{ url_for('users.resend_invite', id=user.id) }}" class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Need to send a new account setup link to this user?</p>
+        <button type="submit"
+                class="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium py-2 px-4 rounded-md text-sm">
+            Resend Invite Link
+        </button>
+    </form>
 </div>
 {% endblock %}

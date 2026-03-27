@@ -152,3 +152,56 @@ def reset_password(token):
         return redirect(url_for("auth.login"))
 
     return render_template("auth/reset_password.html", token=token)
+
+
+@bp.route("/setup-password/<token>", methods=["GET", "POST"])
+def setup_password(token):
+    """Account setup for newly created users (invite link flow)."""
+    from flask import current_app
+
+    if current_user.is_authenticated:
+        return redirect(url_for("main.index"))
+
+    s = URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="account-setup")
+    try:
+        payload = s.loads(token, max_age=259200)  # 72 hours
+    except SignatureExpired:
+        flash("This invitation link has expired. Please contact an administrator to resend it.", "error")
+        return redirect(url_for("auth.login"))
+    except BadSignature:
+        flash("Invalid invitation link.", "error")
+        return redirect(url_for("auth.login"))
+
+    user_id = payload.get("id") if isinstance(payload, dict) else payload
+    user = db.session.get(User, user_id)
+    if user is None:
+        flash("Invalid invitation link.", "error")
+        return redirect(url_for("auth.login"))
+
+    # Token is invalidated once the user sets their password (ph fingerprint changes)
+    expected_ph = payload.get("ph", "") if isinstance(payload, dict) else ""
+    current_ph = user.password_hash[-8:] if user.password_hash else ""
+    if expected_ph and expected_ph != current_ph:
+        flash("This invitation link has already been used. Please log in or use the forgot-password link.", "error")
+        return redirect(url_for("auth.login"))
+
+    if request.method == "POST":
+        new_password = request.form.get("new_password", "")
+        confirm_password = request.form.get("confirm_password", "")
+
+        if len(new_password) < 8:
+            flash("Password must be at least 8 characters.", "error")
+            return render_template("auth/setup_password.html", token=token, user=user)
+
+        if new_password != confirm_password:
+            flash("Passwords do not match.", "error")
+            return render_template("auth/setup_password.html", token=token, user=user)
+
+        user.set_password(new_password)
+        user.must_change_password = False
+        db.session.commit()
+        login_user(user)
+        flash("Welcome! Your account is ready.", "success")
+        return redirect(url_for("main.index"))
+
+    return render_template("auth/setup_password.html", token=token, user=user)

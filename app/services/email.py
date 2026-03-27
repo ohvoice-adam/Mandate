@@ -91,6 +91,95 @@ def send_backup_digest_email(to: str, entries: list) -> None:
     send_email(to, subject, body_html, body_text)
 
 
+def send_invitation_email(to: str, invite_url: str, inviter_name: str) -> None:
+    """Send an account setup invitation email."""
+    from app.models import Settings
+    org_name = Settings.get("branding_org_name", "").strip()
+    app_name = org_name or "Mandate"
+    platform_desc = f"Mandate, {org_name}'s petition signature" if org_name else "Mandate, the petition signature"
+
+    subject = f"You're invited to {app_name}"
+
+    body_text = (
+        f"Hi,\n\n"
+        f"{inviter_name} has set up an account for you on {platform_desc}\n"
+        f"management system.\n\n"
+        f"To get started, click the link below to choose your password and sign in.\n"
+        f"This link is valid for 72 hours.\n\n"
+        f"  {invite_url}\n\n"
+        f"If the link has expired, you can request a new one from the login page\n"
+        f"using the \"Forgot your password?\" link.\n\n"
+        f"If you weren't expecting this invitation, you can safely ignore this email.\n\n"
+        f"— The {app_name} team"
+    )
+
+    body_html = f"""<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:system-ui,-apple-system,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:#0c3e6b;padding:28px 40px;">
+            <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">{app_name}</p>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:36px 40px 28px;">
+            <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:#111827;">You're invited!</h1>
+            <p style="margin:0 0 12px;font-size:15px;color:#374151;line-height:1.6;">
+              <strong>{inviter_name}</strong> has set up an account for you on
+              <strong>{platform_desc}</strong> management system.
+            </p>
+            <p style="margin:0 0 28px;font-size:15px;color:#374151;line-height:1.6;">
+              Click the button below to choose your password and sign in for the first time.
+              This invitation link is valid for <strong>72 hours</strong>.
+            </p>
+
+            <!-- CTA button -->
+            <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+              <tr>
+                <td style="background:#f56708;border-radius:6px;">
+                  <a href="{invite_url}"
+                     style="display:inline-block;padding:13px 28px;font-size:15px;font-weight:600;
+                            color:#ffffff;text-decoration:none;letter-spacing:0.1px;">
+                    Activate My Account →
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:0 0 8px;font-size:13px;color:#6b7280;line-height:1.5;">
+              If the button doesn't work, paste this link into your browser:
+            </p>
+            <p style="margin:0 0 28px;font-size:12px;color:#6b7280;word-break:break-all;">
+              <a href="{invite_url}" style="color:#0c3e6b;">{invite_url}</a>
+            </p>
+
+            <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 20px;">
+
+            <p style="margin:0;font-size:13px;color:#9ca3af;line-height:1.5;">
+              If your link expires, use the
+              <a href="#" style="color:#0c3e6b;">Forgot your password?</a>
+              link on the login page to request a new one.<br>
+              If you weren't expecting this invitation, you can safely ignore this email.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+    send_email(to, subject, body_html, body_text)
+
+
 def send_password_reset_email(to: str, reset_url: str) -> None:
     """Send a password reset email with the given reset URL."""
     subject = "Password Reset Request"

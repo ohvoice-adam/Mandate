@@ -142,8 +142,8 @@
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">System Status</h2>
 
             <!-- Voter file -->
-            <div>
-                <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Voter File</div>
+            <a href="{{ url_for('imports.index') }}" class="block rounded-md -mx-2 px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
+                <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1 group-hover:text-primary-600 dark:group-hover:text-primary-400">Voter File ↗</div>
                 {% if last_import %}
                 <div class="flex items-center gap-2">
                     <span class="inline-block w-2 h-2 rounded-full bg-green-500"></span>
@@ -161,11 +161,11 @@
                     <span class="text-sm text-gray-500 dark:text-gray-400">No voter file imported yet.</span>
                 </div>
                 {% endif %}
-            </div>
+            </a>
 
             <!-- Backup -->
-            <div>
-                <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Database Backup</div>
+            <a href="{{ url_for('settings.index') }}#backup" class="block rounded-md -mx-2 px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
+                <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1 group-hover:text-primary-600 dark:group-hover:text-primary-400">Database Backup ↗</div>
                 {% if backup_config.last_status %}
                     {% if backup_config.last_status == 'success' %}
                     <div class="flex items-center gap-2">
@@ -206,7 +206,7 @@
                     Schedule: {{ backup_config.schedule }}
                 </div>
                 {% endif %}
-            </div>
+            </a>
 
             <!-- Open batches warning -->
             {% if counts.open_batches > 0 %}

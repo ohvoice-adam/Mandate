@@ -1,8 +1,12 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+import secrets
+
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
 from flask_login import login_required, current_user
+from itsdangerous import URLSafeTimedSerializer
 
 from app import db
 from app.models import User, UserRole, Organization, admin_required, organizer_required
+from app.services import email as email_service
 from app.utils import is_valid_email
 
 bp = Blueprint("users", __name__)
@@ -28,9 +32,10 @@ def new():
         c for c in UserRole.CHOICES if c[0] != UserRole.ADMIN
     ]
 
+    smtp_configured = email_service.is_configured()
+
     if request.method == "POST":
         email = request.form.get("email", "").strip()
-        password = request.form.get("password")
         first_name = request.form.get("first_name")
         last_name = request.form.get("last_name")
         role = request.form.get("role", UserRole.ENTERER)
@@ -40,15 +45,15 @@ def new():
         # Organizers cannot assign admin role
         if not current_user.is_admin and role == UserRole.ADMIN:
             flash("You don't have permission to assign the Administrator role.", "error")
-            return render_template("users/new.html", roles=available_roles, organizations=organizations)
+            return render_template("users/new.html", roles=available_roles, organizations=organizations, smtp_configured=smtp_configured)
 
         if not is_valid_email(email):
             flash("Invalid email address.", "error")
-            return render_template("users/new.html", roles=available_roles, organizations=organizations)
+            return render_template("users/new.html", roles=available_roles, organizations=organizations, smtp_configured=smtp_configured)
 
         if User.query.filter_by(email=email).first():
             flash("Email already registered", "error")
-            return render_template("users/new.html", roles=available_roles, organizations=organizations)
+            return render_template("users/new.html", roles=available_roles, organizations=organizations, smtp_configured=smtp_configured)
 
         user = User(
             email=email,
@@ -57,15 +62,35 @@ def new():
             role=role,
             organization_id=organization_id,
         )
-        user.set_password(password)
+        # Set a random unusable password — the user will set their own via the invite link
+        user.set_password(secrets.token_hex(32))
 
         db.session.add(user)
         db.session.commit()
 
-        flash(f"User {user.full_name} created successfully", "success")
-        return redirect(url_for("users.index"))
+        # Generate a 72-hour invite token
+        s = URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="account-setup")
+        token = s.dumps({"id": user.id, "ph": user.password_hash[-8:]})
+        invite_url = url_for("auth.setup_password", token=token, _external=True)
 
-    return render_template("users/new.html", roles=available_roles, organizations=organizations)
+        # Send invite email if SMTP is configured
+        email_sent = False
+        if smtp_configured:
+            try:
+                email_service.send_invitation_email(user.email, invite_url, current_user.full_name)
+                email_sent = True
+            except Exception:
+                current_app.logger.exception("Failed to send invite email to %s", user.email)
+
+        return render_template(
+            "users/invite_link.html",
+            user=user,
+            invite_url=invite_url,
+            email_sent=email_sent,
+            smtp_configured=smtp_configured,
+        )
+
+    return render_template("users/new.html", roles=available_roles, organizations=organizations, smtp_configured=smtp_configured)
 
 
 @bp.route("/<int:id>/edit", methods=["GET", "POST"])
@@ -150,3 +175,40 @@ def toggle_active(id):
     status = "activated" if user.is_active else "deactivated"
     flash(f"User {user.full_name} {status}", "success")
     return redirect(url_for("users.index"))
+
+
+@bp.route("/<int:id>/resend-invite", methods=["POST"])
+@login_required
+@organizer_required
+def resend_invite(id):
+    """Generate a fresh invite link for a user (and send via email if configured)."""
+    user = db.session.get(User, id)
+    if not user:
+        flash("User not found", "error")
+        return redirect(url_for("users.index"))
+
+    if not current_user.is_admin and user.is_admin:
+        flash("You don't have permission to modify an Administrator account.", "error")
+        return redirect(url_for("users.index"))
+
+    smtp_configured = email_service.is_configured()
+
+    s = URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="account-setup")
+    token = s.dumps({"id": user.id, "ph": user.password_hash[-8:] if user.password_hash else ""})
+    invite_url = url_for("auth.setup_password", token=token, _external=True)
+
+    email_sent = False
+    if smtp_configured:
+        try:
+            email_service.send_invitation_email(user.email, invite_url, current_user.full_name)
+            email_sent = True
+        except Exception:
+            current_app.logger.exception("Failed to send invite email to %s", user.email)
+
+    return render_template(
+        "users/invite_link.html",
+        user=user,
+        invite_url=invite_url,
+        email_sent=email_sent,
+        smtp_configured=smtp_configured,
+    )

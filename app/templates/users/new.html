@@ -6,6 +6,13 @@
 <div class="max-w-lg mx-auto">
     <h1 class="text-2xl font-bold mb-6">Add User</h1>
 
+    {% if not smtp_configured %}
+    <div class="mb-4 rounded-md bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 px-4 py-3 text-sm text-yellow-800 dark:text-yellow-300">
+        <strong>SMTP not configured.</strong> An invite link will be shown after creating the user — copy and share it manually.
+        You can configure email in <a href="{{ url_for('settings.index') }}#smtp" class="underline">Settings → Email</a>.
+    </div>
+    {% endif %}
+
     <form method="POST" class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm space-y-4">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="grid grid-cols-2 gap-4">
@@ -24,12 +31,6 @@
         <div>
             <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
             <input type="email" name="email" id="email" required
-                   class="mt-1 block w-full rounded-md bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white px-3 py-2 focus:border-navy-500 focus:ring-navy-500">
-        </div>
-
-        <div>
-            <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
-            <input type="password" name="password" id="password" required
                    class="mt-1 block w-full rounded-md bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white px-3 py-2 focus:border-navy-500 focus:ring-navy-500">
         </div>
 
@@ -57,7 +58,7 @@
         <div class="flex space-x-4 pt-4">
             <button type="submit"
                     class="bg-accent-500 hover:bg-accent-600 text-white font-medium py-2 px-4 rounded-md">
-                Create User
+                Create User &amp; Send Invite
             </button>
             <a href="{{ url_for('users.index') }}"
                class="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-medium py-2 px-4 rounded-md">
