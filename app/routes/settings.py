@@ -447,6 +447,22 @@ def system_health():
         ORDER BY 1
     """)).fetchall()
 
+    # Login history (last 7 days, most recent 100)
+    login_history = db.session.execute(sqlt("""
+        SELECT
+            e.logged_in_at,
+            e.ip_address,
+            u.first_name,
+            u.last_name,
+            u.email,
+            u.role
+        FROM user_login_events e
+        JOIN users u ON u.id = e.user_id
+        WHERE e.logged_in_at >= NOW() - INTERVAL '7 days'
+        ORDER BY e.logged_in_at DESC
+        LIMIT 100
+    """)).fetchall()
+
     return render_template(
         "settings/system_health.html",
         active_users=active_users_rows,
@@ -454,6 +470,7 @@ def system_health():
         last_import=last_import,
         backup_config=backup_config,
         hourly_activity=hourly_activity,
+        login_history=login_history,
         target_city_display=target_city_display,
         now=now,
     )

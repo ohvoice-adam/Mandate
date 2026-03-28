@@ -110,6 +110,67 @@
         </table>
     </div>
 
+    <!-- Login history -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Login History
+                <span class="text-sm font-normal text-gray-500 dark:text-gray-400">(last 7 days)</span>
+            </h2>
+        </div>
+        <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+            <thead class="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">User</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Logged In</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">IP Address</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for ev in login_history %}
+                {% set is_active = active_users | selectattr('email', 'equalto', ev.email) | list | length > 0 %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td class="px-6 py-3 whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            {% if is_active %}
+                            <span class="inline-block w-2 h-2 rounded-full bg-green-500 shrink-0" title="Currently active"></span>
+                            {% endif %}
+                            <div>
+                                <div class="font-medium text-gray-900 dark:text-white">{{ ev.first_name }} {{ ev.last_name }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">{{ ev.email }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-3 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                            {% if ev.role == 'admin' %}bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300
+                            {% elif ev.role == 'organizer' %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300
+                            {% else %}bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                            {{ ev.role | title }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-3 whitespace-nowrap text-gray-600 dark:text-gray-300">
+                        <span title="{{ ev.logged_in_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC">
+                            {{ ev.logged_in_at.strftime('%Y-%m-%d %H:%M') }} UTC
+                        </span>
+                    </td>
+                    <td class="px-6 py-3 whitespace-nowrap text-gray-500 dark:text-gray-400 font-mono text-xs">
+                        {{ ev.ip_address or '—' }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="px-6 py-8 text-center text-gray-400 dark:text-gray-500">
+                        No logins recorded in the last 7 days.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+
     <!-- Activity + system status row -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 

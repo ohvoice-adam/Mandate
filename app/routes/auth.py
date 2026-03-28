@@ -5,7 +5,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 
 from app import db
-from app.models import User
+from app.models import User, UserLoginEvent
 from app.services import email as email_service
 
 bp = Blueprint("auth", __name__)
@@ -27,6 +27,8 @@ def login():
                 flash("Your account has been deactivated. Please contact an administrator.", "error")
                 return render_template("auth/login.html")
             login_user(user)
+            db.session.add(UserLoginEvent(user_id=user.id, ip_address=request.remote_addr))
+            db.session.commit()
             if user.must_change_password:
                 return redirect(url_for("auth.change_password"))
             next_page = request.args.get("next", "")
@@ -199,6 +201,7 @@ def setup_password(token):
 
         user.set_password(new_password)
         user.must_change_password = False
+        db.session.add(UserLoginEvent(user_id=user.id, ip_address=request.remote_addr))
         db.session.commit()
         login_user(user)
         flash("Welcome! Your account is ready.", "success")

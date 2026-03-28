@@ -1,4 +1,4 @@
-__version__ = "0.3.3"
+__version__ = "0.3.4"
 
 DEFAULT_PRIMARY = "#0c3e6b"
 DEFAULT_ACCENT = "#f56708"
@@ -117,7 +117,7 @@ def create_app(config_class=Config):
 
     # Runtime startup tasks (run after migrations have been applied)
     with app.app_context():
-        from app.models import User, Voter, Signature, Book, Batch, Collector, DataEnterer, Settings, VoterImport, PetitionPrintJob
+        from app.models import User, Voter, Signature, Book, Batch, Collector, DataEnterer, Settings, VoterImport, PetitionPrintJob, UserLoginEvent
 
         # Ensure pg_trgm extension and voter search indexes exist.
         # Wrapped in try/except because this runs during `flask db upgrade`

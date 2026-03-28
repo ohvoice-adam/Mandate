@@ -1,4 +1,5 @@
 from app.models.user import User, UserRole, admin_required, organizer_required
+from app.models.login_event import UserLoginEvent
 from app.models.voter import Voter
 from app.models.signature import Signature
 from app.models.book import Book
@@ -25,4 +26,5 @@ __all__ = [
     "VoterImport",
     "ImportStatus",
     "PetitionPrintJob",
+    "UserLoginEvent",
 ]
