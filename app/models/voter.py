@@ -1,8 +1,28 @@
+"""
+Voter model — the imported county voter file used for signature verification.
+
+SQLAlchemy concepts used here:
+- **__table_args__**: a tuple of extra DDL options applied to the table.
+  Used here to declare multi-column indexes that can't be expressed as a
+  single ``db.Column(..., index=True)``.
+- **postgresql_using="gin"**: passes a PostgreSQL-specific option to
+  ``CREATE INDEX``.  GIN (Generalized Inverted Index) is the index type
+  required by ``pg_trgm`` for trigram similarity searches.
+- **postgresql_ops={"col": "gin_trgm_ops"}**: tells PostgreSQL which
+  operator class to use — ``gin_trgm_ops`` enables the ``%`` (similarity)
+  and ``ILIKE`` operators for fuzzy text matching.
+"""
+
 from app import db
 
 
 class Voter(db.Model):
-    """Franklin County Voter File - used for signature verification."""
+    """
+    A single voter record imported from the county voter file CSV.
+
+    Used by the signature-entry flow to look up and verify signers.
+    The ``voters`` table is replaced on each import via the import service.
+    """
 
     __tablename__ = "voters"
 
@@ -30,17 +50,19 @@ class Voter(db.Model):
     precinct_name = db.Column(db.String(200))
     ward = db.Column(db.String(200))
 
+    # __table_args__ lets us attach indexes that span multiple columns or need
+    # PostgreSQL-specific options that db.Column(index=True) doesn't support.
     __table_args__ = (
         # B-tree index for fast prefix search (ILIKE 'xxx%')
         db.Index("idx_voters_address_btree", residential_address1),
-        # Trigram index for fuzzy address search
+        # GIN trigram index enables fuzzy address search via pg_trgm similarity
         db.Index(
             "idx_voters_address_trgm",
             residential_address1,
             postgresql_using="gin",
             postgresql_ops={"residential_address1": "gin_trgm_ops"},
         ),
-        # Trigram index for name search
+        # GIN trigram index for last-name fuzzy search
         db.Index(
             "idx_voters_name_trgm",
             last_name,

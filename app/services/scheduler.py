@@ -1,4 +1,22 @@
-"""APScheduler integration for scheduled database backups."""
+"""
+APScheduler integration for scheduled database backups and digest emails.
+
+Background-job concepts used here:
+- **BackgroundScheduler**: runs jobs in a daemon thread within the same
+  process.  Jobs fire independently of HTTP requests and have no Flask request
+  context available.
+- **app.app_context()**: every job must push a Flask app context so it can
+  access ``db.session``, ``Settings``, and ``current_app``.  Jobs receive the
+  real ``app`` object (not the proxy) precisely for this reason.
+- **PostgreSQL advisory lock** (``pg_try_advisory_xact_lock``): a
+  transaction-level lock that is automatically released when the transaction
+  commits or rolls back.  Used to ensure only one of N Gunicorn workers sends
+  the digest email when all workers fire the same scheduled job simultaneously.
+  A threading.Lock would only work within one process; the advisory lock works
+  across all processes sharing the same PostgreSQL connection.
+- **coalesce=True, max_instances=1**: APScheduler options that prevent job
+  pile-up if the previous run is still going when the next trigger fires.
+"""
 
 import logging
 

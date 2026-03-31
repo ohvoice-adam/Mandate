@@ -1,3 +1,18 @@
+"""
+Petition print routes — upload PDF templates and generate serialized booklets.
+
+PDF generation uses PyMuPDF (fitz) to stamp serial numbers onto the uploaded
+cover and petition page templates.  The resulting PDF is stored base64-encoded
+in the ``petition_print_jobs`` DB table and served back via a ``Response``
+object with ``Content-Disposition: attachment``.
+
+Flask concepts used here:
+- **current_user**: Flask-Login proxy for the logged-in User — used to record
+  ``generated_by_id`` on each print job.
+- **Response(bytes, mimetype=..., headers=...)**: used to stream the binary
+  PDF to the browser rather than rendering an HTML template.
+"""
+
 import base64
 from datetime import datetime
 

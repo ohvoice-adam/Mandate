@@ -1,3 +1,11 @@
+"""
+Batch model — groups signatures entered in one data-entry session.
+
+A Batch ties together a Book, the Collector who gathered the signatures, and
+the data enterer (User) who typed them in.  Each Batch has its own set of
+Signature rows so that errors can be rolled back per-batch.
+"""
+
 from app import db
 
 

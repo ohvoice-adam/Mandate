@@ -1,3 +1,19 @@
+"""
+Statistics and export routes — dashboards, CSV exports, and book-level reports.
+
+SQLAlchemy / Flask concepts used here:
+- **text(sql)**: wraps a raw SQL string so SQLAlchemy passes it to the driver
+  unchanged.  Named bind parameters (e.g. ``:city_pattern``) are escaped by
+  psycopg2, which prevents SQL injection even though the surrounding query
+  structure is built with f-strings.
+- **db.session.execute(text(...), params)**: runs a raw SQL query and returns
+  a ``CursorResult``; rows are ``Row`` objects with attribute access
+  (``r.sos_voterid``, ``r.first_name``, etc.).
+- **Response(csv_string, mimetype="text/csv", headers=...)**: used instead of
+  ``render_template`` to return a file download rather than an HTML page.
+  ``Content-Disposition: attachment`` tells the browser to save the file.
+"""
+
 import csv
 import io
 from datetime import date

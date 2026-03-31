@@ -1,3 +1,19 @@
+"""
+Signature entry routes — search voters and record matches via HTMX.
+
+Flask concepts used here:
+- **session[key]**: the signed cookie carries ``book_id``, ``batch_id``, and
+  ``book_number`` set in ``routes/main.py``.  Reading it here lets us know
+  which batch this user is currently entering data for.
+- **HTMX partial responses**: most routes here return a rendered template
+  *fragment* (a partial HTML snippet, not a full page).  HTMX swaps the
+  fragment into the DOM without a full page reload.  The template filenames
+  starting with ``_`` (e.g. ``_results.html``) are a convention for partials.
+- **Session ownership check**: ``_verify_session_ownership()`` compares the
+  batch's ``enterer_id`` against ``current_user.id`` to prevent one user from
+  submitting signatures into another user's open batch.
+"""
+
 from datetime import date
 
 from flask import Blueprint, render_template, request, session, flash, redirect, url_for
@@ -80,6 +96,8 @@ def record_match():
         batch_id=batch_id,
         sos_voterid=voter.sos_voterid,
         county_number=voter.county_number,
+        # Copy address fields from the voter record now — if the voter file is
+        # replaced later, the historical record on this signature stays intact.
         residential_address1=voter.residential_address1,
         residential_address2=voter.residential_address2,
         residential_city=voter.residential_city,
@@ -89,9 +107,12 @@ def record_match():
         matched=True,
     )
 
+    # db.session.add() stages the INSERT; db.session.commit() sends it to the DB.
     db.session.add(signature)
     db.session.commit()
 
+    # render_template() returns an HTML fragment — HTMX will swap it into the
+    # page without reloading.
     return render_template(
         "signatures/_success.html",
         message="Person Match recorded",

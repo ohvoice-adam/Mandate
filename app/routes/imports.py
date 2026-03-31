@@ -1,3 +1,19 @@
+"""
+Voter import routes — upload CSVs, monitor progress, rollback, delete.
+
+Flask concepts used here:
+- **request.files**: a dict-like object of uploaded files; each value is a
+  Werkzeug ``FileStorage`` with ``.filename`` and ``.read()`` attributes.
+- **jsonify(...)**: returns JSON so the HTMX progress-polling UI can update
+  the progress bar without a full page reload.
+- **current_app._get_current_object()**: unwraps the real ``Flask`` app from
+  the proxy so it can be passed to a background thread (which runs outside
+  the request context where the proxy would be invalid).
+
+The import itself runs in a background thread (see ``VoterImportService``);
+these routes just kick it off, poll its status, and handle lifecycle actions.
+"""
+
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app  # noqa: F401 (current_app used in exception handlers)
 from flask_login import login_required
 

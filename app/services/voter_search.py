@@ -1,3 +1,24 @@
+"""
+Voter search service — hybrid B-tree prefix + trigram similarity search.
+
+Search strategy:
+1. **Fast path**: ``ILIKE 'prefix%'`` uses a standard B-tree index and
+   returns exact prefix matches almost instantly.
+2. **Fuzzy path**: ``similarity(col, :address) % :threshold`` uses the
+   ``pg_trgm`` GIN index for fuzzy matching (typos, abbreviations).
+
+The UNION runs both in parallel and deduplicates via the ``NOT ILIKE :prefix``
+guard on the fuzzy branch.
+
+SQLAlchemy concepts used here:
+- **text(sql)**: wraps raw SQL so named bind parameters (``:address``,
+  ``:prefix``, ``:limit``) are safely escaped by psycopg2 — even though the
+  surrounding query structure is a Python string, the values are never
+  interpolated as SQL.
+- **result.mappings()**: returns rows as dict-like objects instead of named
+  tuples; used here so we can pass column values to the Voter constructor.
+"""
+
 from flask import current_app
 from sqlalchemy import text
 

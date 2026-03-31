@@ -1,3 +1,11 @@
+"""
+Statistics service — aggregates signature data for the stats dashboards.
+
+All methods execute raw SQL via ``text()`` + ``db.session.execute()`` for
+performance — the queries involve multi-table JOINs and aggregations that
+would be awkward and slower to express through the ORM's query API.
+"""
+
 from sqlalchemy import text
 
 from app import db

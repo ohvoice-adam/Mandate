@@ -1,7 +1,10 @@
-"""Shared validation helpers."""
+"""Shared validation helpers used across multiple route modules."""
 
 import re
 
+# Compiled at module load time so the regex isn't re-parsed on every call.
+# re.compile() produces a reusable pattern object; calling _EMAIL_RE.match()
+# is faster than re.match(pattern_string, ...) on each request.
 _EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 _DIGITS_RE = re.compile(r'\D')
 

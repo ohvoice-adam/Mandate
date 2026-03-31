@@ -1,8 +1,25 @@
+"""
+Signature model — one row per petition signature entered by a data enterer.
+
+SQLAlchemy concepts used here:
+- **db.ForeignKey("table.col")**: enforces a DB-level constraint and tells
+  SQLAlchemy how to JOIN this table when resolving a relationship.
+- **db.relationship(..., back_populates=...)**: defines a Python-level link
+  so you can traverse ``signature.book`` or ``book.signatures`` without
+  writing any SQL.  ``back_populates`` keeps both sides in sync in memory.
+"""
+
 from app import db
 
 
 class Signature(db.Model):
-    """Verified petition signatures."""
+    """
+    A single petition signature collected in the field.
+
+    Address fields are copied from the voter record at the time of entry so
+    that the signature audit trail is immutable even if the voter file is
+    later replaced.
+    """
 
     __tablename__ = "signatures"
 
@@ -12,7 +29,8 @@ class Signature(db.Model):
     sos_voterid = db.Column(db.String(20), index=True)
     county_number = db.Column(db.String(10))
 
-    # Book and batch tracking
+    # ForeignKey links this row to a Book and Batch row in those tables.
+    # book_id / batch_id will be NULL if the signature isn't assigned yet.
     book_id = db.Column(db.Integer, db.ForeignKey("books.id"))
     batch_id = db.Column(db.Integer, db.ForeignKey("batches.id"))
 
@@ -31,7 +49,9 @@ class Signature(db.Model):
 
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
-    # Relationships
+    # back_populates="signatures" means Book.signatures is automatically kept
+    # in sync — adding a Signature to the session with book_id set will
+    # also appear in signature.book.signatures without an extra query.
     book = db.relationship("Book", back_populates="signatures")
     batch = db.relationship("Batch", back_populates="signatures")
 

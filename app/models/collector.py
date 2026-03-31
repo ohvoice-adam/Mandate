@@ -1,3 +1,19 @@
+"""
+Collector, DataEnterer, Organization, and PaidCollector models.
+
+These represent the people and groups involved in gathering petition
+signatures.  The relationship graph is:
+
+    Organization ──< Collector ──< Book ──< Batch ──< Signature
+                  └─< User (organizers scoped to an org)
+                  └─< PaidCollector (explicit org↔collector link)
+
+SQLAlchemy concept:
+- Multiple ``db.relationship()`` declarations on one model are fine —
+  SQLAlchemy generates a separate SQL query (or JOIN) for each one lazily,
+  only when you first access the attribute.
+"""
+
 from app import db
 
 

@@ -1,3 +1,12 @@
+"""
+Collector and DataEnterer management routes — CRUD for field staff.
+
+All routes require authentication (@login_required).  Collectors are the
+people who gather petition signatures in the field; DataEnterers are the
+people who type those signatures into the system.  Both can be associated
+with an Organization.
+"""
+
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required
 

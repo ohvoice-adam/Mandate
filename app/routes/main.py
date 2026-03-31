@@ -1,3 +1,19 @@
+"""
+Main routes — the data-entry home page and session management.
+
+Flask concepts used here:
+- **session[key]**: Flask's signed-cookie session dict.  Values stored here
+  persist across requests for one browser session.  Unlike a plain cookie,
+  the session is tamper-proof because Flask signs it with SECRET_KEY — but
+  the data is still visible to the client, so never store secrets in it.
+- **request.form**: an ImmutableMultiDict populated from a submitted HTML
+  form's POST body.  ``request.form.get("field")`` returns a string or None.
+- **flash(msg, category)**: stores a one-time message in the session.
+  ``base.html`` renders and then discards it on the next page load.
+- **redirect(url_for(...))**: returns HTTP 302, sending the browser to a new
+  URL resolved by the endpoint name rather than a hard-coded path.
+"""
+
 from datetime import date
 
 from flask import Blueprint, render_template, redirect, url_for, request, session, flash
@@ -11,12 +27,14 @@ bp = Blueprint("main", __name__)
 
 
 @bp.route("/")
-@login_required
+@login_required  # Redirects to auth.login if no authenticated user in session
 def index():
     """Home page - session setup for data entry."""
     collectors = Collector.query.order_by(Collector.last_name, Collector.first_name).all()
 
-    # Get current session info if set
+    # session is Flask's signed-cookie dict — values survive page refreshes
+    # because they're stored in the browser's session cookie (signed by
+    # SECRET_KEY).  .get() returns None if the key hasn't been set yet.
     book_id = session.get("book_id")
     batch_id = session.get("batch_id")
     book_number = session.get("book_number")
@@ -87,19 +105,27 @@ def start_session():
     db.session.add(batch)
     db.session.commit()
 
-    # Store session info
+    # Store the active book/batch IDs in the session cookie so the
+    # signatures blueprint can read them on subsequent requests.
     session["book_id"] = book.id
     session["batch_id"] = batch.id
     session["book_number"] = book_number
 
     flash(f"Started session for Book {book_number}", "success")
+    # redirect() + url_for() = HTTP 302 to /signatures/ without hard-coding the path
     return redirect(url_for("signatures.entry"))
 
 
 @bp.route("/check-book", methods=["POST"])
 @login_required
 def check_book():
-    """Check if a book number already exists."""
+    """
+    HTMX endpoint — check if a book number already exists.
+
+    Returns a plain dict, which Flask automatically converts to a JSON
+    response (Content-Type: application/json).  HTMX reads this JSON to
+    decide whether to warn the user about a duplicate book number.
+    """
     book_number = request.form.get("book_number", "").strip()
     if not book_number:
         return {"exists": False}
@@ -120,6 +146,8 @@ def check_book():
 @login_required
 def end_session():
     """End the current data entry session."""
+    # session.pop() removes the key from the cookie and returns its value.
+    # The None default prevents a KeyError if the key was never set.
     batch_id = session.pop("batch_id", None)
     session.pop("book_id", None)
     session.pop("book_number", None)

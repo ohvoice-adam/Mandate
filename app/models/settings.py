@@ -1,32 +1,75 @@
+"""
+Application settings stored in the database as key-value pairs.
+
+SQLAlchemy / pattern concepts used here:
+- **@classmethod**: all public methods are classmethods because callers use
+  ``Settings.get("key")`` without needing an instance.  This is the
+  *repository pattern* — the class itself acts as the data-access layer.
+- **db.session.add(obj)**: stages a new row for INSERT.  Nothing hits the DB
+  until ``db.session.commit()``.
+- **db.session.commit()**: writes all staged changes in a single transaction.
+  ``Settings.set()`` calls it immediately so every write is durable.
+- **populate_existing()**: forces SQLAlchemy to refresh the object from the DB
+  even if it already exists in the session's identity map.  Needed for
+  ``get()`` so stale cached values are not returned across requests.
+"""
+
 from app import db
 
 
 class Settings(db.Model):
-    """Application settings stored in the database."""
+    """
+    Key-value store for all runtime configuration.
+
+    All app configuration (SMTP credentials, branding colours, backup
+    schedules, signature goals, etc.) lives in this table rather than
+    environment variables so that admins can change settings through the UI
+    without restarting the server.
+    """
 
     __tablename__ = "settings"
 
     id = db.Column(db.Integer, primary_key=True)
+    # index=True speeds up the .filter_by(key=...) lookup inside get().
     key = db.Column(db.String(100), unique=True, nullable=False, index=True)
     value = db.Column(db.Text)
+    # onupdate=db.func.now() tells SQLAlchemy to set this column to the
+    # current timestamp automatically on every UPDATE statement.
     updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
 
     @classmethod
     def get(cls, key: str, default: str = None) -> str:
-        """Get a setting value by key."""
+        """
+        Read a setting value by key.
+
+        Args:
+            key:     The setting key (e.g. ``"smtp_host"``).
+            default: Value to return when the key doesn't exist in the DB.
+
+        Returns:
+            The stored string value, or *default* if not found.
+        """
+        # populate_existing() bypasses SQLAlchemy's in-session cache so we
+        # always read the latest value from the DB, not a stale object.
         setting = cls.query.filter_by(key=key).populate_existing().first()
         return setting.value if setting else default
 
     @classmethod
     def set(cls, key: str, value: str) -> None:
-        """Set a setting value."""
+        """
+        Write a setting value, inserting a new row if the key doesn't exist.
+
+        Args:
+            key:   The setting key.
+            value: The string value to store.
+        """
         setting = cls.query.filter_by(key=key).first()
         if setting:
-            setting.value = value
+            setting.value = value  # UPDATE existing row
         else:
             setting = cls(key=key, value=value)
-            db.session.add(setting)
-        db.session.commit()
+            db.session.add(setting)  # Stage INSERT — nothing written yet
+        db.session.commit()  # Flush all staged changes to the DB in one transaction
 
     @classmethod
     def get_target_city(cls) -> str:

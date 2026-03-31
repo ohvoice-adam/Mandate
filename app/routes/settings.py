@@ -1,3 +1,27 @@
+"""
+Application settings routes — admin-only configuration UI.
+
+Flask concepts used here:
+- **jsonify(...)**: converts a dict/list to a JSON HTTP response with
+  ``Content-Type: application/json``.  Used by connection-test endpoints that
+  HTMX or JS polls for ``{ok, message}``.
+- **abort(404)**: immediately raises an HTTP 404 response, halting route
+  execution — no ``return`` needed after the call.
+- **after_this_request(fn)**: registers *fn* as a callback that runs after
+  Flask sends the response.  Used in ``download_backup`` to delete the temp
+  dump file *after* it has been fully streamed to the browser.
+- **send_file(path, as_attachment=True)**: streams a file from disk to the
+  browser and sets ``Content-Disposition: attachment`` so the browser prompts
+  a Save dialog instead of rendering the file inline.
+- **Response(data, mimetype=..., headers=...)**: builds a raw HTTP response
+  when ``render_template`` / ``send_file`` don't fit — used here for CSV and
+  JSON exports and for serving the stored logo image.
+- **current_app._get_current_object()**: ``current_app`` is a proxy; passing
+  it to a background thread or APScheduler would fail because the proxy is
+  only valid inside a request context.  ``_get_current_object()`` unwraps the
+  real ``Flask`` instance so it can be used outside the request context.
+"""
+
 import base64
 import os
 
@@ -204,11 +228,14 @@ def test_smtp():
 @bp.route("/branding-logo")
 @login_required
 def branding_logo():
-    """Serve the stored org logo."""
+    """Serve the stored org logo as a raw image response."""
     data = Settings.get_logo_bytes()
     if not data:
+        # abort(404) raises an HTTP 404 immediately — nothing after it runs.
         abort(404)
     mime = Settings.get("branding_logo_mime", "image/png")
+    # Response() builds a custom HTTP response; mimetype sets Content-Type
+    # so the browser knows to render this as an image.
     return Response(data, mimetype=mime)
 
 
@@ -300,6 +327,9 @@ def download_backup():
         flash(str(exc), "error")
         return redirect(url_for("settings.index"))
 
+    # after_this_request() registers a callback that runs after Flask finishes
+    # streaming the response.  We can't delete the temp file before send_file()
+    # returns because Flask would still be reading from it.
     @after_this_request
     def _cleanup(response):
         try:

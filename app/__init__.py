@@ -1,3 +1,23 @@
+"""
+Mandate application package — entry point and app factory.
+
+Flask concepts used here:
+- **App factory** (``create_app()``): instead of creating ``app`` at import
+  time, we return a fresh ``Flask`` instance from a function.  This lets
+  tests create isolated app instances with different configs.
+- **Extensions** (``db``, ``login_manager``, ``migrate``, ``csrf``): created
+  at module level *without* an app so they can be imported anywhere.  Bound
+  to a specific app later via ``extension.init_app(app)``.
+- **Blueprints**: each routes file registers itself as a ``Blueprint``; this
+  file imports and mounts them with ``app.register_blueprint()``.  Think of
+  blueprints as Django apps — isolated URL namespaces with their own views.
+- **Context processor** (``inject_globals``): a function decorated with
+  ``@app.context_processor`` whose return dict is merged into every Jinja2
+  template's variable namespace automatically.
+- **Before-request hook** (``enforce_password_change``): runs before *every*
+  incoming request; used here to redirect users with a forced password reset.
+"""
+
 __version__ = "0.3.4"
 
 DEFAULT_PRIMARY = "#0c3e6b"
@@ -12,23 +32,49 @@ from app.config import Config
 
 from flask_wtf.csrf import CSRFProtect
 
+# Extension objects are created here at module level so that any file can do
+# `from app import db` and get the same SQLAlchemy instance.  They have no
+# app bound yet — that happens inside create_app() via .init_app().
 db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
+# login_view tells Flask-Login which endpoint to redirect to when an
+# unauthenticated user hits a @login_required route.
 login_manager.login_view = "auth.login"
 csrf = CSRFProtect()
 
 
 def create_app(config_class=Config):
+    """
+    Application factory — creates and fully configures a Flask app instance.
+
+    Called once at startup (by ``run.py`` or ``flask`` CLI) and again by the
+    test suite for each isolated test session.  Accepts an optional
+    ``config_class`` so tests can pass a ``TestConfig`` with an in-memory DB.
+
+    Args:
+        config_class: A class whose UPPER_CASE attributes become Flask config
+                      values.  Defaults to ``Config`` from ``app/config.py``.
+
+    Returns:
+        A fully configured ``Flask`` application instance.
+    """
+    # Flask(__name__) tells Flask where to find templates and static files
+    # relative to this package directory.
     app = Flask(__name__)
+    # from_object() reads every UPPER_CASE attribute of config_class and
+    # stores it in app.config (a dict-like object).
     app.config.from_object(config_class)
 
-    # Initialize extensions
+    # init_app() binds each extension to this specific app instance.  Under
+    # the hood each extension stores a reference to the app so it can push
+    # an app context when needed (e.g. db knows which DB URI to connect to).
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
     csrf.init_app(app)
-    # Accept CSRF token from X-CSRFToken header (used by HTMX requests)
+    # By default Flask-WTF only looks for the CSRF token in form data.
+    # HTMX sends it as a custom request header instead, so we add it here.
     app.config["WTF_CSRF_HEADERS"] = ["X-CSRFToken"]
 
     # Register blueprints
@@ -56,8 +102,23 @@ def create_app(config_class=Config):
     app.register_blueprint(prints_bp, url_prefix="/prints")
     app.register_blueprint(help_bp, url_prefix="/help")
 
+    # @app.context_processor registers inject_globals() so that its return
+    # dict is automatically merged into every Jinja2 template's variables.
+    # Templates can reference {{ app_version }}, {{ branding }}, etc. without
+    # any route handler passing them explicitly.
     @app.context_processor
     def inject_globals():
+        """
+        Inject app-wide template variables on every request.
+
+        Reads branding and font settings from the DB and returns a dict that
+        Jinja2 merges into every template's namespace.  Falls back to
+        sensible defaults if the settings table doesn't exist yet (e.g.
+        during ``flask db upgrade`` before migrations have run).
+
+        Returns:
+            dict with keys: ``app_version``, ``branding``, ``branding_palette``
+        """
         from app.services.branding import build_palette
         from app.services.fonts import (
             build_font_url, get_headline_css_stack, get_body_css_stack,
@@ -72,6 +133,8 @@ def create_app(config_class=Config):
                 cfg["accent_color"] or DEFAULT_ACCENT,
             )
         except Exception:
+            # Settings table doesn't exist yet (fresh install / during
+            # migrations) — fall back to hardcoded defaults.
             cfg = {
                 "mode": "",
                 "org_name": "",
@@ -93,13 +156,31 @@ def create_app(config_class=Config):
 
         return {"app_version": __version__, "branding": cfg, "branding_palette": palette}
 
+    # @app.before_request registers a function that Flask calls before every
+    # request is dispatched to its route handler.  Returning a response from
+    # this function short-circuits the normal handler entirely.
     @app.before_request
     def enforce_password_change():
+        """
+        Before-request hook with two jobs:
+
+        1. Update ``current_user.last_seen`` (throttled to once per minute)
+           so the system-health dashboard can show recent activity.
+        2. Redirect any user with ``must_change_password=True`` to the
+           change-password page, blocking access to all other pages.
+
+        Skips both checks for unauthenticated users and auth/static routes to
+        avoid redirect loops.
+        """
         from datetime import datetime
         from flask import request, redirect, url_for
         from flask_login import current_user
+        # current_user is a Flask-Login proxy that resolves to the logged-in
+        # User object, or an AnonymousUser if nobody is logged in.
         if not current_user.is_authenticated:
             return
+        # Don't intercept auth routes (login, logout, etc.) or static files,
+        # otherwise the forced-password-change redirect would loop forever.
         if request.endpoint and (
             request.endpoint.startswith("auth.") or request.endpoint == "static"
         ):
@@ -109,10 +190,12 @@ def create_app(config_class=Config):
             now = datetime.utcnow()
             if current_user.last_seen is None or (now - current_user.last_seen).total_seconds() > 60:
                 current_user.last_seen = now
-                db.session.commit()
+                db.session.commit()  # Write the updated timestamp to the DB
         except Exception:
-            db.session.rollback()
+            db.session.rollback()  # Roll back to keep the session clean on error
         if current_user.must_change_password:
+            # redirect() returns HTTP 302; url_for() resolves the endpoint
+            # name to a URL path without hard-coding it.
             return redirect(url_for("auth.change_password"))
 
     # Runtime startup tasks (run after migrations have been applied)

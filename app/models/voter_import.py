@@ -1,8 +1,29 @@
+"""
+VoterImport model — tracks the state of long-running voter file import jobs.
+
+Concepts used here:
+- **ImportStatus constants**: plain class attributes used as an enum-like
+  namespace.  Python's ``enum.Enum`` would work too, but a simple class is
+  easier to compare with string DB values (``status == ImportStatus.RUNNING``).
+- **cancel_requested column**: the web request sets this flag to True in the
+  DB; the background import thread polls it each batch and exits when it sees
+  True.  This is the standard pattern for cooperative cancellation across
+  process boundaries (a threading.Event can't cross a DB connection).
+"""
+
 from datetime import datetime
 from app import db
 
 
 class ImportStatus:
+    """
+    String constants for the ``VoterImport.status`` column.
+
+    Using a class instead of a Python Enum means the values stored in the DB
+    are plain strings (``"running"``, ``"completed"``, etc.) that are easy to
+    inspect, query, and display without any conversion step.
+    """
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"

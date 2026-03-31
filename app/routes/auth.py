@@ -1,3 +1,26 @@
+"""
+Authentication routes — login, logout, password change, and invite/reset tokens.
+
+Flask / library concepts used here:
+- **Blueprint**: groups these related routes under the ``"auth"`` namespace so
+  ``url_for("auth.login")`` always resolves correctly regardless of where the
+  blueprint is mounted.
+- **login_user(user)**: Flask-Login function that writes the user's ID into the
+  signed session cookie — subsequent requests call ``load_user(id)`` to
+  reconstruct the object.
+- **logout_user()**: clears the session cookie entry that Flask-Login set.
+- **@login_required**: Flask-Login decorator; if no user is in the session,
+  redirects to ``login_manager.login_view`` (set to ``"auth.login"``).
+- **URLSafeTimedSerializer**: itsdangerous utility that produces HMAC-signed,
+  time-limited tokens.  The token payload is base64-encoded (not encrypted),
+  but the signature means it cannot be tampered with without the SECRET_KEY.
+  ``s.loads(token, max_age=N)`` raises ``SignatureExpired`` if older than N
+  seconds, or ``BadSignature`` if tampered.
+- **_external=True** in ``url_for(..., _external=True)``: generates a full URL
+  with scheme+host (e.g. ``https://example.com/auth/reset-password/TOKEN``)
+  rather than a relative path — required for URLs sent in emails.
+"""
+
 from urllib.parse import urlparse
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request
@@ -8,15 +31,28 @@ from app import db
 from app.models import User, UserLoginEvent
 from app.services import email as email_service
 
+# Blueprint("auth", __name__) creates a route namespace called "auth".
+# Routes inside use @bp.route(...); callers use url_for("auth.<func_name>").
 bp = Blueprint("auth", __name__)
 
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
+    """
+    Show the login form (GET) and authenticate the submitted credentials (POST).
+
+    On success: records a login event, sets the session cookie via
+    ``login_user()``, then redirects to the originally requested page
+    (``?next=``) or the main index.
+    """
+    # current_user is a Flask-Login proxy; .is_authenticated is True if the
+    # session cookie holds a valid user ID.
     if current_user.is_authenticated:
         return redirect(url_for("main.index"))
 
     if request.method == "POST":
+        # request.form is an ImmutableMultiDict of submitted HTML form fields.
+        # .get() returns None (not KeyError) if the field is missing.
         email = request.form.get("email")
         password = request.form.get("password")
 
@@ -26,9 +62,12 @@ def login():
             if not user.is_active:
                 flash("Your account has been deactivated. Please contact an administrator.", "error")
                 return render_template("auth/login.html")
+            # login_user() writes the user's ID into Flask's signed session
+            # cookie so subsequent requests can identify the user.
             login_user(user)
+            # Stage a login event row, then commit both changes together.
             db.session.add(UserLoginEvent(user_id=user.id, ip_address=request.remote_addr))
-            db.session.commit()
+            db.session.commit()  # Write the login event to the DB
             if user.must_change_password:
                 return redirect(url_for("auth.change_password"))
             next_page = request.args.get("next", "")
@@ -37,8 +76,12 @@ def login():
                 next_page = ""
             return redirect(next_page or url_for("main.index"))
 
+        # flash() stores a one-time message in the session.  base.html reads
+        # and displays it on the very next page render, then discards it.
         flash("Invalid email or password", "error")
 
+    # render_template() finds auth/login.html in the templates/ directory and
+    # renders it with Jinja2, passing any keyword args as template variables.
     return render_template("auth/login.html")
 
 
@@ -97,8 +140,12 @@ def forgot_password():
         if user and smtp_configured:
             try:
                 s = URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="password-reset")
-                # Include a hash of the current password so the token is invalidated after use
+                # "ph" fingerprint: last 8 chars of the hash lets us invalidate
+                # the token after use — once the password changes, the hash
+                # changes, so s.loads() will see a mismatch and reject the token.
                 token = s.dumps({"id": user.id, "ph": user.password_hash[-8:] if user.password_hash else ""})
+                # _external=True builds an absolute URL (https://host/path)
+                # instead of a relative path — required for links sent by email.
                 reset_url = url_for("auth.reset_password", token=token, _external=True)
                 email_service.send_password_reset_email(user.email, reset_url)
             except Exception:

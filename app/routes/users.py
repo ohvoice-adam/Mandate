@@ -1,3 +1,22 @@
+"""
+User management routes — list, create, edit users, and manage invite links.
+
+Flask / library concepts used here:
+- **current_app**: a proxy to the active Flask application object.  Unlike
+  ``app``, it works inside request contexts where the actual app object isn't
+  directly in scope.  Used here to read ``config["SECRET_KEY"]``.
+- **URLSafeTimedSerializer** (itsdangerous): creates a signed token from a
+  dict payload.  The token is HMAC-signed with SECRET_KEY and a per-use
+  *salt* so a password-reset token can't be reused as an account-setup token
+  even though both use the same serializer class.
+- **_external=True** in ``url_for(..., _external=True)``: produces an absolute
+  URL (``https://host/path``) instead of a relative path — required for the
+  invite link that is sent in an email or copied from the UI.
+- **@organizer_required** stacked under **@login_required**: decorators apply
+  bottom-up, so Flask-Login checks authentication first, then the role check
+  runs.  Both must pass for the handler to be called.
+"""
+
 import secrets
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
@@ -68,9 +87,12 @@ def new():
         db.session.add(user)
         db.session.commit()
 
-        # Generate a 72-hour invite token
+        # Generate a 72-hour invite token.  The "ph" fingerprint invalidates
+        # the token once the user sets their password.  The salt "account-setup"
+        # ensures this token can't be used on the password-reset endpoint.
         s = URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="account-setup")
         token = s.dumps({"id": user.id, "ph": user.password_hash[-8:]})
+        # _external=True: full URL with scheme+domain, needed for invite links
         invite_url = url_for("auth.setup_password", token=token, _external=True)
 
         # Send invite email if SMTP is configured

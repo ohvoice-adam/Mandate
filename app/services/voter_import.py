@@ -1,3 +1,23 @@
+"""
+Voter import service — long-running CSV import with progress tracking.
+
+Threading / Flask app-context concepts used here:
+- **Background thread**: the import runs in a ``threading.Thread`` so the
+  HTTP request that started it returns immediately.  The UI polls
+  ``/imports/<id>/status`` (JSON) for progress updates.
+- **app.app_context()**: Flask's request context (``current_app``, ``g``,
+  ``db.session``) is *not* available in background threads.  The thread
+  receives the real ``app`` object and uses ``with app.app_context()`` to
+  push a context for the duration of the import.
+- **_running_imports dict + _lock**: a process-local registry of live import
+  threads.  Used to signal cancellation via a shared ``cancel`` flag.  A
+  threading.Lock() protects the dict from concurrent access.
+- **Cancellation pattern**: the web request sets ``voter_import.cancel_requested``
+  in the DB *and* flips the in-memory flag.  The import thread checks both on
+  each batch boundary to support the case where the process restarted between
+  the cancel request and the next batch.
+"""
+
 import csv
 import os
 import shutil

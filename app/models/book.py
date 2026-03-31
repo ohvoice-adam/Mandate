@@ -1,3 +1,11 @@
+"""
+Book model — a physical petition book assigned to a collector.
+
+A Book is the top-level container: it holds Batches (data-entry sessions),
+and each Batch holds Signatures.  The ``book_number`` is the human-visible
+serial number printed on the cover; ``id`` is the internal DB primary key.
+"""
+
 from app import db
 
 

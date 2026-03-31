@@ -1,3 +1,11 @@
+"""
+Organization management routes — CRUD for collector organizations.
+
+Organizations group Collectors and Users.  Only organizers and admins can
+manage organizations (@organizer_required).  An organization cannot be
+deleted while it still has collectors or users assigned to it.
+"""
+
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required
 
