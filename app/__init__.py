@@ -18,7 +18,7 @@ Flask concepts used here:
   incoming request; used here to redirect users with a forced password reset.
 """
 
-__version__ = "0.3.4"
+__version__ = "0.3.5"
 
 DEFAULT_PRIMARY = "#0c3e6b"
 DEFAULT_ACCENT = "#f56708"

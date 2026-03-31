@@ -175,64 +175,86 @@ class StatsService:
 
     @staticmethod
     def get_collector_stats() -> list[dict]:
-        """Get per-collector quality metrics: match rate and cross-book duplicate rate."""
+        """Get per-collector quality metrics using the same breakdown as organization stats."""
+        city_info = StatsService.get_target_city_info()
+        city_pattern = city_info["pattern"]
+
         sql = text("""
-            WITH book_voters AS (
-                SELECT b.id AS book_id, b.collector_id, s.sos_voterid
-                FROM books b
-                JOIN signatures s ON s.book_id = b.id
-                WHERE s.sos_voterid IS NOT NULL AND s.sos_voterid <> ''
-                  AND s.matched = TRUE
-                GROUP BY b.id, b.collector_id, s.sos_voterid
-            ),
-            global_dupes AS (
-                SELECT sos_voterid
-                FROM book_voters
-                GROUP BY sos_voterid
-                HAVING COUNT(DISTINCT book_id) > 1
-            )
             SELECT
                 c.id,
                 c.first_name || ' ' || c.last_name          AS collector_name,
                 COALESCE(o.name, 'No Organization')          AS organization,
                 COUNT(DISTINCT b.id)                         AS books,
                 COUNT(s.id)                                  AS total_signatures,
-                SUM(CASE WHEN s.matched THEN 1 ELSE 0 END)  AS matched_count,
-                SUM(CASE WHEN NOT s.matched THEN 1 ELSE 0 END) AS unmatched_count,
-                COUNT(DISTINCT CASE WHEN gd.sos_voterid IS NOT NULL
-                                    THEN s.sos_voterid END)  AS duplicate_voters
+                SUM(
+                    CASE WHEN s.matched IS TRUE
+                    AND s.registered_city LIKE :city_pattern THEN 1 ELSE 0 END
+                ) AS matched_target,
+                SUM(
+                    CASE WHEN s.matched IS TRUE
+                    AND (
+                        s.registered_city NOT LIKE :city_pattern OR s.registered_city IS NULL
+                    ) THEN 1 ELSE 0 END
+                ) AS matched_other,
+                SUM(
+                    CASE WHEN s.matched IS FALSE
+                    AND s.registered_city LIKE :city_pattern THEN 1 ELSE 0 END
+                ) AS address_only_target,
+                SUM(
+                    CASE WHEN s.matched IS FALSE
+                    AND (
+                        s.registered_city NOT LIKE :city_pattern OR s.registered_city IS NULL
+                    )
+                    AND s.residential_zip <> '' THEN 1 ELSE 0 END
+                ) AS address_only_other,
+                SUM(
+                    CASE WHEN s.residential_zip IS NULL
+                    OR s.residential_zip = '' THEN 1 ELSE 0 END
+                ) AS unmatched,
+                ROUND(
+                    (
+                        SUM(
+                            CASE WHEN s.matched IS TRUE
+                            AND s.registered_city LIKE :city_pattern THEN 1 ELSE 0 END
+                        ) * 100.0 / NULLIF(COUNT(s.id), 0)
+                    ), 0
+                ) AS percent_verified,
+                ROUND(
+                    (
+                        SUM(
+                            CASE WHEN s.registered_city LIKE :city_pattern THEN 1 ELSE 0 END
+                        ) * 100.0 / NULLIF(COUNT(s.id), 0)
+                    ), 0
+                ) AS percent_target
             FROM collectors c
             LEFT JOIN organizations o  ON o.id = c.organization_id
             LEFT JOIN books b          ON b.collector_id = c.id
             LEFT JOIN signatures s     ON s.book_id = b.id
-            LEFT JOIN global_dupes gd  ON gd.sos_voterid = s.sos_voterid
             GROUP BY c.id, collector_name, organization
             HAVING COUNT(s.id) > 0
-            ORDER BY total_signatures DESC NULLS LAST
+            ORDER BY collector_name ASC
         """)
 
-        rows = db.session.execute(sql).fetchall()
+        rows = db.session.execute(sql, {"city_pattern": city_pattern}).fetchall()
 
-        result = []
-        for row in rows:
-            total    = row.total_signatures or 0
-            matched  = int(row.matched_count or 0)
-            unmatched = int(row.unmatched_count or 0)
-            dupes    = int(row.duplicate_voters or 0)
-            result.append({
-                "id":             row.id,
-                "name":           row.collector_name,
-                "organization":   row.organization,
-                "books":          row.books or 0,
-                "total":          total,
-                "matched":        matched,
-                "unmatched":      unmatched,
-                "duplicates":     dupes,
-                "match_pct":      round(matched   * 100 / total, 1) if total else 0,
-                "unmatched_pct":  round(unmatched * 100 / total, 1) if total else 0,
-                "duplicate_pct":  round(dupes     * 100 / matched, 1) if matched else 0,
-            })
-        return result
+        return [
+            {
+                "id":                   row.id,
+                "name":                 row.collector_name,
+                "organization":         row.organization,
+                "books":                row.books or 0,
+                "total_signatures":     row.total_signatures or 0,
+                "matched_target":       row.matched_target or 0,
+                "matched_other":        row.matched_other or 0,
+                "address_only_target":  row.address_only_target or 0,
+                "address_only_other":   row.address_only_other or 0,
+                "unmatched":            row.unmatched or 0,
+                "percent_verified":     row.percent_verified or 0,
+                "percent_target":       row.percent_target or 0,
+                "target_city":          city_info["display"],
+            }
+            for row in rows
+        ]
 
     @staticmethod
     def get_book_stats(sort: str = "book_number", direction: str = "desc") -> list[dict]:
@@ -310,6 +332,7 @@ class StatsService:
             SELECT
                 coalesce(o.name, 'Volunteers') as organization,
                 count(distinct(b.id)) as books,
+                count(s.id) as total_signatures,
                 sum(
                     case when s.matched is true
                     and s.registered_city like :city_pattern then 1 else 0 end
@@ -364,6 +387,7 @@ class StatsService:
             {
                 "organization": row.organization,
                 "books": row.books or 0,
+                "total_signatures": row.total_signatures or 0,
                 "matched_target": row.matched_target or 0,
                 "matched_other": row.matched_other or 0,
                 "address_only_target": row.address_only_target or 0,
