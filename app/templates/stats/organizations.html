@@ -25,6 +25,7 @@
                 <tr>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Organization</th>
                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Books</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Sigs</th>
                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Matched {{ target_city }}</th>
                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Matched Other</th>
                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Addr Only</th>
@@ -38,6 +39,7 @@
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                     <td class="px-4 py-4 whitespace-nowrap font-medium">{{ stat.organization }}</td>
                     <td class="px-4 py-4 whitespace-nowrap text-right text-gray-500 dark:text-gray-400">{{ stat.books }}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-right text-gray-700 dark:text-gray-300">{{ stat.total_signatures }}</td>
                     <td class="px-4 py-4 whitespace-nowrap text-right text-green-600 dark:text-green-400">{{ stat.matched_target }}</td>
                     <td class="px-4 py-4 whitespace-nowrap text-right text-green-500 dark:text-green-300">{{ stat.matched_other }}</td>
                     <td class="px-4 py-4 whitespace-nowrap text-right text-orange-600 dark:text-orange-400">{{ stat.address_only_target + stat.address_only_other }}</td>
@@ -47,7 +49,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                    <td colspan="9" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                         No organization data yet.
                     </td>
                 </tr>

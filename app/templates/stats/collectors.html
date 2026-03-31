@@ -11,62 +11,47 @@
         </a>
     </div>
 
-    <p class="text-sm text-gray-500 dark:text-gray-400">
-        <strong>Match %</strong> — signatures matched to a voter record.
-        <strong>Unmatched %</strong> — signatures with no voter match (likely invalid).
-        <strong>Duplicate %</strong> — matched signatures whose voter also appears in another book (cross-book duplicates, as % of matched).
-    </p>
+    {% if stats and stats[0] %}
+    {% set target_city = stats[0].target_city %}
+    <div class="bg-navy-50 dark:bg-navy-900/20 border border-navy-200 dark:border-navy-800 rounded-lg p-4">
+        <span class="text-navy-700 dark:text-navy-300">Target City:</span>
+        <span class="font-bold text-navy-900 dark:text-navy-100">{{ target_city }}</span>
+    </div>
+    {% endif %}
 
-    <div class="bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-sm">
+    <div class="bg-white dark:bg-gray-800 rounded-lg overflow-hidden overflow-x-auto shadow-sm">
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
             <thead class="bg-gray-50 dark:bg-gray-900">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Collector</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Organization</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Books</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Sigs</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Matched</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Match %</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Unmatched %</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Duplicate %</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Collector</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Organization</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Books</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Sigs</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Matched {{ target_city }}</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Matched Other</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Addr Only</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Unmatched</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">% Matched {{ target_city }}</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">% {{ target_city }} Address</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                 {% for stat in stats %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td class="px-6 py-3 whitespace-nowrap font-medium">{{ stat.name }}</td>
-                    <td class="px-6 py-3 whitespace-nowrap text-gray-500 dark:text-gray-400">{{ stat.organization }}</td>
-                    <td class="px-6 py-3 whitespace-nowrap text-right text-gray-500 dark:text-gray-400">{{ stat.books }}</td>
-                    <td class="px-6 py-3 whitespace-nowrap text-right font-medium">{{ "{:,}".format(stat.total) }}</td>
-                    <td class="px-6 py-3 whitespace-nowrap text-right text-green-700 dark:text-green-400">{{ "{:,}".format(stat.matched) }}</td>
-                    <td class="px-6 py-3 whitespace-nowrap text-right">
-                        <span class="font-medium
-                            {% if stat.match_pct >= 75 %}text-green-700 dark:text-green-400
-                            {% elif stat.match_pct >= 50 %}text-yellow-600 dark:text-yellow-400
-                            {% else %}text-red-600 dark:text-red-400{% endif %}">
-                            {{ stat.match_pct }}%
-                        </span>
-                    </td>
-                    <td class="px-6 py-3 whitespace-nowrap text-right">
-                        {% if stat.unmatched_pct > 20 %}
-                        <span class="font-medium text-red-600 dark:text-red-400">{{ stat.unmatched_pct }}%</span>
-                        {% else %}
-                        <span class="text-gray-500 dark:text-gray-400">{{ stat.unmatched_pct }}%</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-6 py-3 whitespace-nowrap text-right">
-                        {% if stat.duplicate_pct > 10 %}
-                        <span class="font-medium text-yellow-600 dark:text-yellow-400">{{ stat.duplicate_pct }}%</span>
-                        {% elif stat.duplicate_pct > 0 %}
-                        <span class="text-gray-500 dark:text-gray-400">{{ stat.duplicate_pct }}%</span>
-                        {% else %}
-                        <span class="text-gray-400">—</span>
-                        {% endif %}
-                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap font-medium">{{ stat.name }}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-gray-500 dark:text-gray-400">{{ stat.organization }}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-right text-gray-500 dark:text-gray-400">{{ stat.books }}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-right text-gray-700 dark:text-gray-300">{{ stat.total_signatures }}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-right text-green-600 dark:text-green-400">{{ stat.matched_target }}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-right text-green-500 dark:text-green-300">{{ stat.matched_other }}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-right text-orange-600 dark:text-orange-400">{{ stat.address_only_target + stat.address_only_other }}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-right text-yellow-600 dark:text-yellow-400">{{ stat.unmatched }}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-right font-bold">{{ stat.percent_verified }}%</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-right">{{ stat.percent_target }}%</td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                    <td colspan="10" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                         No collector data yet.
                     </td>
                 </tr>
@@ -75,10 +60,13 @@
             {% if stats %}
             <tfoot class="bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
                 <tr class="text-xs text-gray-500 dark:text-gray-400">
-                    <td colspan="3" class="px-6 py-2 font-medium">{{ stats|length }} collector{% if stats|length != 1 %}s{% endif %}</td>
-                    <td class="px-6 py-2 text-right font-medium text-gray-700 dark:text-gray-300">{{ "{:,}".format(stats|sum(attribute='total')) }}</td>
-                    <td class="px-6 py-2 text-right font-medium text-green-700 dark:text-green-400">{{ "{:,}".format(stats|sum(attribute='matched')) }}</td>
-                    <td colspan="3"></td>
+                    <td colspan="3" class="px-4 py-2 font-medium">{{ stats|length }} collector{% if stats|length != 1 %}s{% endif %}</td>
+                    <td class="px-4 py-2 text-right font-medium text-gray-700 dark:text-gray-300">{{ stats|sum(attribute='total_signatures') }}</td>
+                    <td class="px-4 py-2 text-right font-medium text-green-600 dark:text-green-400">{{ stats|sum(attribute='matched_target') }}</td>
+                    <td class="px-4 py-2 text-right font-medium text-green-500 dark:text-green-300">{{ stats|sum(attribute='matched_other') }}</td>
+                    <td class="px-4 py-2 text-right font-medium text-orange-600 dark:text-orange-400">{{ stats|sum(attribute='address_only_target') + stats|sum(attribute='address_only_other') }}</td>
+                    <td class="px-4 py-2 text-right font-medium text-yellow-600 dark:text-yellow-400">{{ stats|sum(attribute='unmatched') }}</td>
+                    <td colspan="2"></td>
                 </tr>
             </tfoot>
             {% endif %}
