@@ -516,8 +516,33 @@ class VoterImportService:
             db.session.rollback()
 
     @classmethod
-    def handle_upload(cls, file, county_name, app):
-        """Handle an uploaded file (CSV or ZIP) and start imports."""
+    def _save_and_detect(cls, filepath: str, filename: str) -> str:
+        """Detect county from a saved CSV file.
+
+        Returns the county name on success. Deletes the file and raises
+        ValueError with a user-facing message if the county cannot be determined.
+        """
+        result = cls.detect_county_from_file(filepath)
+        if result is None:
+            try:
+                os.remove(filepath)
+            except OSError:
+                pass
+            raise ValueError(
+                f"Could not determine county from \"{filename}\" — "
+                "verify it is an Ohio SOS voter export file."
+            )
+        _number, county_name = result
+        return county_name
+
+    @classmethod
+    def handle_upload(cls, file, app):
+        """Handle an uploaded file (CSV or ZIP) and start imports.
+
+        County name is auto-detected from the COUNTY_NUMBER field in each CSV.
+        Raises ValueError immediately (before creating any DB records) if a
+        file's county cannot be identified.
+        """
         upload_folder = app.config.get("UPLOAD_FOLDER", "/tmp/petition-qc-uploads")
         os.makedirs(upload_folder, exist_ok=True)
 
@@ -533,14 +558,14 @@ class VoterImportService:
                 with zipfile.ZipFile(zip_path, "r") as zf:
                     for name in zf.namelist():
                         if name.lower().endswith((".csv", ".txt")) and not name.startswith("__"):
-                            # Extract individual file
                             extracted_name = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{os.path.basename(name)}"
                             extracted_path = os.path.join(upload_folder, extracted_name)
 
                             with zf.open(name) as src, open(extracted_path, "wb") as dst:
                                 shutil.copyfileobj(src, dst)
 
-                            # Create import record
+                            county_name = cls._save_and_detect(extracted_path, os.path.basename(name))
+
                             voter_import = VoterImport(
                                 filename=extracted_name,
                                 county_name=county_name,
@@ -558,6 +583,8 @@ class VoterImportService:
             safe_filename = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{file.filename}"
             filepath = os.path.join(upload_folder, safe_filename)
             file.save(filepath)
+
+            county_name = cls._save_and_detect(filepath, file.filename)
 
             voter_import = VoterImport(
                 filename=safe_filename,
@@ -597,11 +624,42 @@ class VoterImportService:
     }
 
     @classmethod
-    def get_ohio_counties(cls):
-        """Get list of all Ohio county names."""
-        return list(cls.OHIO_COUNTY_NUMBERS.keys())
+    def ensure_counties(cls):
+        """Seed the counties table on first run if empty."""
+        from app.models.county import County
+        if County.query.count() == 0:
+            db.session.bulk_insert_mappings(County, [
+                {"number": number, "name": name}
+                for name, number in cls.OHIO_COUNTY_NUMBERS.items()
+            ])
+            db.session.commit()
 
     @classmethod
-    def get_county_number(cls, county_name):
-        """Get the county number for a county name."""
-        return cls.OHIO_COUNTY_NUMBERS.get(county_name)
+    def detect_county_from_file(cls, filepath: str) -> tuple[str, str] | None:
+        """Read the first non-blank COUNTY_NUMBER from a CSV and look it up.
+
+        Returns ``(number, name)`` (e.g. ``("25", "Franklin")``) or ``None``
+        when the column is absent, all values are blank, or the number is not
+        in the counties table.
+        """
+        from app.models.county import County
+        with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                raw = (row.get("COUNTY_NUMBER") or "").strip()
+                if raw:
+                    try:
+                        number = f"{int(raw):02d}"
+                    except ValueError:
+                        continue
+                    county = County.query.filter_by(number=number).first()
+                    if county:
+                        return (number, county.name)
+        return None
+
+    @classmethod
+    def get_county_number(cls, county_name: str) -> str | None:
+        """Get the county number for a county name (DB lookup)."""
+        from app.models.county import County
+        county = County.query.filter_by(name=county_name).first()
+        return county.number if county else None

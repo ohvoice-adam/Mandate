@@ -57,11 +57,10 @@ class Signature(db.Model):
 
     @property
     def is_target_city_resident(self):
-        """Check if registered city matches the target city."""
+        """Check if registered city matches the target city (including county-file variants)."""
         from app.models import Settings
         if self.registered_city:
-            pattern = Settings.get_target_city_pattern().rstrip('%')
-            return self.registered_city.upper().startswith(pattern)
+            return self.registered_city.upper() in Settings.get_city_aliases()
         return False
 
     @property

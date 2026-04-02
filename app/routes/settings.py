@@ -27,7 +27,7 @@ import os
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify, abort, Response, send_file, after_this_request
 from flask_login import login_required
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 
 from app import db
 from app.models import Settings, admin_required
@@ -250,6 +250,23 @@ def clear_logo():
     return redirect(url_for("settings.index"))
 
 
+@bp.route("/generate-logo-colors", methods=["POST"])
+@login_required
+@admin_required
+def generate_logo_colors():
+    """Extract and save brand colors from the stored logo."""
+    logo_bytes = Settings.get_logo_bytes()
+    if not logo_bytes:
+        flash("No logo uploaded. Upload a logo first.", "error")
+        return redirect(url_for("settings.index"))
+    from app.services.branding import extract_colors_from_image
+    primary, accent = extract_colors_from_image(logo_bytes)
+    branding_config = Settings.get_branding_config()
+    Settings.save_branding_config(branding_config["mode"], branding_config["org_name"], primary, accent)
+    flash("Colors generated from logo.", "success")
+    return redirect(url_for("settings.index"))
+
+
 @bp.route("/save-branding-config", methods=["POST"])
 @login_required
 @admin_required
@@ -281,15 +298,10 @@ def save_branding_config():
             return redirect(url_for("settings.index"))
         Settings.set("branding_logo_content", base64.b64encode(logo_bytes).decode())
         Settings.set("branding_logo_mime", mime)
-        # Auto-extracted colors always win when a new logo is uploaded.
-        # color inputs are always non-empty (browser default), so we can't
-        # distinguish "user typed a value" from "pre-filled default" here.
-        from app.services.branding import extract_colors_from_image
-        final_primary, final_accent = extract_colors_from_image(logo_bytes)
-    else:
-        # No new logo — honor whatever the color pickers submitted.
-        final_primary = request.form.get("branding_primary_color", "").strip()
-        final_accent = request.form.get("branding_accent_color", "").strip()
+
+    # Honor whatever the color pickers submitted.
+    final_primary = request.form.get("branding_primary_color", "").strip()
+    final_accent = request.form.get("branding_accent_color", "").strip()
 
     # Switching back to default Mandate branding clears stored colors so the
     # context processor falls back to the hardcoded navy/orange defaults.
@@ -439,7 +451,7 @@ def system_health():
         ORDER BY u.last_seen DESC
     """), {"threshold": active_threshold}).fetchall()
 
-    city_pattern = Settings.get_target_city_pattern()
+    city_aliases = Settings.get_city_aliases()
     target_city_display = Settings.get_target_city_display()
 
     # Counts
@@ -448,12 +460,12 @@ def system_health():
             (SELECT COUNT(*) FROM users WHERE is_active = TRUE)          AS total_users,
             (SELECT COUNT(*) FROM signatures)                            AS total_signatures,
             (SELECT COUNT(*) FROM voters
-             WHERE city LIKE :city_pattern)                              AS total_voters,
+             WHERE city IN :city_aliases)                                AS total_voters,
             (SELECT COUNT(*) FROM books)                                 AS total_books,
             (SELECT COUNT(*) FROM batches WHERE status = 'open')         AS open_batches,
             (SELECT COUNT(DISTINCT county_number) FROM voters
              WHERE county_number IS NOT NULL AND county_number <> '')    AS loaded_counties
-    """), {"city_pattern": city_pattern}).fetchone()
+    """).bindparams(bindparam("city_aliases", expanding=True)), {"city_aliases": city_aliases}).fetchone()
 
     # Most recent completed voter import
     last_import = (
@@ -507,21 +519,49 @@ def system_health():
 
 
 def get_distinct_cities() -> list[dict]:
-    """Get distinct cities from the voter file."""
-    result = db.session.execute(text("""
-        SELECT DISTINCT city, COUNT(*) as count
+    """Get distinct cities from the voter file, grouping county-file naming variants.
+
+    Some counties append " City" or "-City" to municipality names (e.g. "Columbus City",
+    "Grove City-City"). This function merges those alias forms into a single entry using
+    the bare name as the canonical value, and combines their voter counts.
+    """
+    from app.models.settings import _CITY_SUFFIXES
+
+    rows = db.session.execute(text("""
+        SELECT upper(city) AS city_upper, COUNT(*) AS count
         FROM voters
         WHERE city IS NOT NULL AND city != ''
-        GROUP BY city
+        GROUP BY upper(city)
         ORDER BY count DESC
-    """))
+    """)).fetchall()
 
-    cities = []
-    for row in result:
-        cities.append({
-            "value": row.city,
-            "label": row.city.title(),
-            "count": row.count,
-        })
+    city_count = {row.city_upper: row.count for row in rows}
+    all_cities = set(city_count.keys())
 
-    return cities
+    # Map each city string to its canonical (bare) form.
+    # A city is treated as a variant of another when stripping one suffix
+    # yields a name that also exists in the voter data.
+    canonical_of: dict[str, str] = {}
+    for city in all_cities:
+        for suffix in _CITY_SUFFIXES:
+            if city.endswith(suffix):
+                base = city[: -len(suffix)]
+                if base in all_cities:
+                    canonical_of[city] = base
+                    break
+        if city not in canonical_of:
+            canonical_of[city] = city
+
+    # Sum counts under each canonical name
+    groups: dict[str, int] = {}
+    for city, count in city_count.items():
+        canonical = canonical_of[city]
+        groups[canonical] = groups.get(canonical, 0) + count
+
+    return sorted(
+        [
+            {"value": canonical, "label": canonical.title(), "count": count}
+            for canonical, count in groups.items()
+        ],
+        key=lambda x: -x["count"],
+    )

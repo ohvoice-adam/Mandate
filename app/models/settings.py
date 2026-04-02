@@ -16,6 +16,11 @@ SQLAlchemy / pattern concepts used here:
 
 from app import db
 
+# Suffixes appended by some county voter-file exports to denote an incorporated city.
+# "Columbus City" (space) and "Grove City-City" (hyphen) both mean the same
+# jurisdiction as the bare name "Columbus" / "Grove City".
+_CITY_SUFFIXES: list[str] = [" CITY", "-CITY"]
+
 
 class Settings(db.Model):
     """
@@ -83,14 +88,47 @@ class Settings(db.Model):
         return city.title() if city else "Columbus"
 
     @classmethod
-    def get_target_city_pattern(cls) -> str:
-        """Get the SQL LIKE pattern for matching the target city."""
-        city = cls.get_target_city()
-        if city:
-            # Remove " CITY" suffix for pattern matching if present
-            base = city.replace(" CITY", "").replace(" city", "")
-            return f"{base}%"
-        return "COLUMBUS%"
+    def get_city_aliases(cls) -> list[str]:
+        """
+        Return all city-name variants in the voter data that are equivalent to
+        the configured target city.
+
+        Some county voter files append " City" or "-City" to municipality names
+        (e.g. "Columbus City", "Grove City-City") while other counties write
+        just "Columbus" or "Grove City" — both referring to the same place.
+
+        Aliases are only added when the alternate form actually exists in the
+        voters table, preventing incorrect merges: "Grove City" is NOT merged
+        with "Grove" unless "Grove" literally appears in the voter data.
+        """
+        from sqlalchemy import text as sa_text
+
+        target = cls.get_target_city() or "COLUMBUS"
+        target_upper = target.upper().strip()
+
+        rows = db.session.execute(sa_text(
+            "SELECT DISTINCT upper(city) FROM voters "
+            "WHERE city IS NOT NULL AND city != ''"
+        )).fetchall()
+        cities_in_db = {row[0] for row in rows}
+
+        aliases = [target_upper]
+
+        # Strip one trailing suffix and check whether the bare base form exists
+        for suffix in _CITY_SUFFIXES:
+            if target_upper.endswith(suffix):
+                stripped = target_upper[: -len(suffix)]
+                if stripped in cities_in_db and stripped not in aliases:
+                    aliases.append(stripped)
+                break  # at most one suffix applies to the stored target
+
+        # Check whether target + each suffix exists as a variant
+        for suffix in _CITY_SUFFIXES:
+            extended = target_upper + suffix
+            if extended in cities_in_db and extended not in aliases:
+                aliases.append(extended)
+
+        return aliases
 
     @classmethod
     def get_signature_goal(cls) -> int:

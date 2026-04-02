@@ -6,7 +6,7 @@ performance — the queries involve multi-table JOINs and aggregations that
 would be awkward and slower to express through the ORM's query API.
 """
 
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 
 from app import db
 from app.models import Settings
@@ -22,7 +22,7 @@ class StatsService:
         return {
             "city": city,
             "display": Settings.get_target_city_display(),
-            "pattern": Settings.get_target_city_pattern(),
+            "aliases": Settings.get_city_aliases(),
         }
 
     @staticmethod
@@ -42,29 +42,29 @@ class StatsService:
             - target_city: The configured target city name
         """
         city_info = StatsService.get_target_city_info()
-        city_pattern = city_info["pattern"]
+        city_aliases = city_info["aliases"]
 
         sql = text("""
             SELECT
                 count(*) as entered,
                 sum(
                     case when matched is true
-                    and registered_city like :city_pattern then 1 else 0 end
+                    and registered_city in :city_aliases then 1 else 0 end
                 ) as matched_target,
                 sum(
                     case when matched is true
                     and (
-                        registered_city not like :city_pattern or registered_city is null
+                        registered_city not in :city_aliases or registered_city is null
                     ) then 1 else 0 end
                 ) as matched_other,
                 sum(
                     case when matched is false
-                    and registered_city like :city_pattern then 1 else 0 end
+                    and registered_city in :city_aliases then 1 else 0 end
                 ) as address_only_target,
                 sum(
                     case when matched is false
                     and (
-                        registered_city not like :city_pattern or registered_city is null
+                        registered_city not in :city_aliases or registered_city is null
                     )
                     and residential_zip <> '' then 1 else 0 end
                 ) as address_only_other,
@@ -76,7 +76,7 @@ class StatsService:
                     SELECT count(distinct sos_voterid)
                     FROM signatures
                     WHERE matched = true
-                    AND registered_city like :city_pattern
+                    AND registered_city in :city_aliases
                     AND sos_voterid is not null
                     AND sos_voterid <> ''
                 ) as unique_matched_target,
@@ -84,14 +84,14 @@ class StatsService:
                     (
                         sum(
                             case when matched is true
-                            and registered_city like :city_pattern then 1 else 0 end
+                            and registered_city in :city_aliases then 1 else 0 end
                         ) * 100.0 / NULLIF(count(*), 0)
                     ), 0
                 ) as percent_verified,
                 round(
                     (
                         sum(
-                            case when registered_city like :city_pattern then 1 else 0 end
+                            case when registered_city in :city_aliases then 1 else 0 end
                         ) * 100.0 / NULLIF(count(*), 0)
                     ), 0
                 ) as percent_target
@@ -108,9 +108,9 @@ class StatsService:
                 WHERE sos_voterid IS NOT NULL AND sos_voterid <> ''
                 ORDER BY sos_voterid, batch_id, matched DESC, id
             ) AS combined
-        """)
+        """).bindparams(bindparam("city_aliases", expanding=True))
 
-        result = db.session.execute(sql, {"city_pattern": city_pattern}).fetchone()
+        result = db.session.execute(sql, {"city_aliases": city_aliases}).fetchone()
 
         if not result:
             return {
@@ -177,7 +177,7 @@ class StatsService:
     def get_collector_stats() -> list[dict]:
         """Get per-collector quality metrics using the same breakdown as organization stats."""
         city_info = StatsService.get_target_city_info()
-        city_pattern = city_info["pattern"]
+        city_aliases = city_info["aliases"]
 
         sql = text("""
             SELECT
@@ -188,22 +188,22 @@ class StatsService:
                 COUNT(s.id)                                  AS total_signatures,
                 SUM(
                     CASE WHEN s.matched IS TRUE
-                    AND s.registered_city LIKE :city_pattern THEN 1 ELSE 0 END
+                    AND s.registered_city IN :city_aliases THEN 1 ELSE 0 END
                 ) AS matched_target,
                 SUM(
                     CASE WHEN s.matched IS TRUE
                     AND (
-                        s.registered_city NOT LIKE :city_pattern OR s.registered_city IS NULL
+                        s.registered_city NOT IN :city_aliases OR s.registered_city IS NULL
                     ) THEN 1 ELSE 0 END
                 ) AS matched_other,
                 SUM(
                     CASE WHEN s.matched IS FALSE
-                    AND s.registered_city LIKE :city_pattern THEN 1 ELSE 0 END
+                    AND s.registered_city IN :city_aliases THEN 1 ELSE 0 END
                 ) AS address_only_target,
                 SUM(
                     CASE WHEN s.matched IS FALSE
                     AND (
-                        s.registered_city NOT LIKE :city_pattern OR s.registered_city IS NULL
+                        s.registered_city NOT IN :city_aliases OR s.registered_city IS NULL
                     )
                     AND s.residential_zip <> '' THEN 1 ELSE 0 END
                 ) AS address_only_other,
@@ -215,14 +215,14 @@ class StatsService:
                     (
                         SUM(
                             CASE WHEN s.matched IS TRUE
-                            AND s.registered_city LIKE :city_pattern THEN 1 ELSE 0 END
+                            AND s.registered_city IN :city_aliases THEN 1 ELSE 0 END
                         ) * 100.0 / NULLIF(COUNT(s.id), 0)
                     ), 0
                 ) AS percent_verified,
                 ROUND(
                     (
                         SUM(
-                            CASE WHEN s.registered_city LIKE :city_pattern THEN 1 ELSE 0 END
+                            CASE WHEN s.registered_city IN :city_aliases THEN 1 ELSE 0 END
                         ) * 100.0 / NULLIF(COUNT(s.id), 0)
                     ), 0
                 ) AS percent_target
@@ -233,9 +233,9 @@ class StatsService:
             GROUP BY c.id, collector_name, organization
             HAVING COUNT(s.id) > 0
             ORDER BY collector_name ASC
-        """)
+        """).bindparams(bindparam("city_aliases", expanding=True))
 
-        rows = db.session.execute(sql, {"city_pattern": city_pattern}).fetchall()
+        rows = db.session.execute(sql, {"city_aliases": city_aliases}).fetchall()
 
         return [
             {
@@ -326,7 +326,7 @@ class StatsService:
     def get_organization_stats() -> list[dict]:
         """Get statistics per organization."""
         city_info = StatsService.get_target_city_info()
-        city_pattern = city_info["pattern"]
+        city_aliases = city_info["aliases"]
 
         sql = text("""
             SELECT
@@ -335,22 +335,22 @@ class StatsService:
                 count(s.id) as total_signatures,
                 sum(
                     case when s.matched is true
-                    and s.registered_city like :city_pattern then 1 else 0 end
+                    and s.registered_city in :city_aliases then 1 else 0 end
                 ) as matched_target,
                 sum(
                     case when s.matched is true
                     and (
-                        s.registered_city not like :city_pattern or s.registered_city is null
+                        s.registered_city not in :city_aliases or s.registered_city is null
                     ) then 1 else 0 end
                 ) as matched_other,
                 sum(
                     case when s.matched is false
-                    and s.registered_city like :city_pattern then 1 else 0 end
+                    and s.registered_city in :city_aliases then 1 else 0 end
                 ) as address_only_target,
                 sum(
                     case when s.matched is false
                     and (
-                        s.registered_city not like :city_pattern or s.registered_city is null
+                        s.registered_city not in :city_aliases or s.registered_city is null
                     )
                     and s.residential_zip <> '' then 1 else 0 end
                 ) as address_only_other,
@@ -362,14 +362,14 @@ class StatsService:
                     (
                         sum(
                             case when s.matched is true
-                            and s.registered_city like :city_pattern then 1 else 0 end
+                            and s.registered_city in :city_aliases then 1 else 0 end
                         ) * 100.0 / NULLIF(count(*), 0)
                     ), 0
                 ) as percent_verified,
                 round(
                     (
                         sum(
-                            case when s.registered_city like :city_pattern then 1 else 0 end
+                            case when s.registered_city in :city_aliases then 1 else 0 end
                         ) * 100.0 / NULLIF(count(*), 0)
                     ), 0
                 ) as percent_target
@@ -379,9 +379,9 @@ class StatsService:
             LEFT JOIN organizations o ON c.organization_id = o.id
             GROUP BY 1
             ORDER BY 1 ASC
-        """)
+        """).bindparams(bindparam("city_aliases", expanding=True))
 
-        result = db.session.execute(sql, {"city_pattern": city_pattern}).fetchall()
+        result = db.session.execute(sql, {"city_aliases": city_aliases}).fetchall()
 
         return [
             {

@@ -18,7 +18,7 @@ Flask concepts used here:
   incoming request; used here to redirect users with a forced password reset.
 """
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 DEFAULT_PRIMARY = "#0c3e6b"
 DEFAULT_ACCENT = "#f56708"
@@ -208,6 +208,15 @@ def create_app(config_class=Config):
         try:
             from app.services.voter_search import ensure_search_indexes
             ensure_search_indexes()
+        except Exception:
+            pass
+
+        # Seed the counties lookup table if it's empty (first run).
+        # Wrapped in try/except because this runs during `flask db upgrade`
+        # before migrations have created the counties table.
+        try:
+            from app.services.voter_import import VoterImportService
+            VoterImportService.ensure_counties()
         except Exception:
             pass
 

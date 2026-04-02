@@ -33,10 +33,7 @@ def index():
     # Get all imports, most recent first
     imports = VoterImport.query.order_by(VoterImport.created_at.desc()).all()
 
-    # Get all Ohio counties for the upload dropdown
-    counties = VoterImportService.get_ohio_counties()
-
-    # Get loaded counties for the delete dropdown
+    # Get loaded counties for the delete dropdown and loaded-counties display
     loaded_counties = VoterImportService.get_loaded_counties()
 
     # Separate into active and completed
@@ -47,7 +44,6 @@ def index():
         "imports/index.html",
         active_imports=active_imports,
         completed_imports=completed_imports,
-        counties=counties,
         loaded_counties=loaded_counties,
     )
 
@@ -62,11 +58,6 @@ def upload():
         return redirect(url_for("imports.index"))
 
     files = request.files.getlist("file")
-    county_name = request.form.get("county_name", "").strip()
-
-    if not county_name:
-        flash("County name is required", "error")
-        return redirect(url_for("imports.index"))
 
     if not files or all(f.filename == "" for f in files):
         flash("No file selected", "error")
@@ -83,8 +74,10 @@ def upload():
             continue
 
         try:
-            new_imports = VoterImportService.handle_upload(file, county_name, current_app._get_current_object())
+            new_imports = VoterImportService.handle_upload(file, current_app._get_current_object())
             imports_created.extend(new_imports)
+        except ValueError as e:
+            flash(str(e), "error")
         except Exception:
             current_app.logger.exception("Error processing upload: %s", file.filename)
             flash("An error occurred processing the upload. Check the application logs.", "error")

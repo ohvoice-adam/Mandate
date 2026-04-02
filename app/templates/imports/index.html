@@ -12,25 +12,6 @@
         <form method="POST" action="{{ url_for('imports.upload') }}" enctype="multipart/form-data" class="space-y-4">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div>
-                <label for="county_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    County Name
-                </label>
-                <select name="county_name" id="county_name" required
-                        class="block w-full rounded-md bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white px-3 py-2 focus:border-navy-500 focus:ring-navy-500">
-                    <option value="">Select a county...</option>
-                    {% for county in counties %}
-                    <option value="{{ county }}">{{ county }}</option>
-                    {% endfor %}
-                </select>
-                <div id="county-replace-warning" class="hidden mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-600 rounded-md text-yellow-800 dark:text-yellow-300 text-sm">
-                    <strong>Warning:</strong> <span id="county-warning-text"></span>
-                </div>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Existing voters for this county will be replaced.
-                </p>
-            </div>
-
-            <div>
                 <label for="file" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Voter File(s)
                 </label>
@@ -101,6 +82,31 @@
                 </form>
             </div>
         </div>
+        {% endif %}
+    </div>
+
+    <!-- Loaded Counties -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm mb-8">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold">Loaded Counties</h2>
+            {% if loaded_counties %}
+            <span class="text-sm text-gray-500 dark:text-gray-400">
+                {{ loaded_counties | length }} counti{{ "es" if loaded_counties | length != 1 else "y" }} &mdash;
+                {{ "{:,}".format(loaded_counties | sum(attribute="count")) }} total voters
+            </span>
+            {% endif %}
+        </div>
+        {% if loaded_counties %}
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            {% for county in loaded_counties | sort(attribute="name") %}
+            <div class="flex items-center justify-between rounded-md bg-gray-50 dark:bg-gray-700 px-3 py-2 text-sm">
+                <span class="font-medium text-gray-800 dark:text-gray-200">{{ county.name }}</span>
+                <span class="ml-2 text-gray-500 dark:text-gray-400 tabular-nums">{{ "{:,}".format(county.count) }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-500 dark:text-gray-400">No voter data loaded yet.</p>
         {% endif %}
     </div>
 
@@ -228,27 +234,6 @@
         {% endif %}
     </div>
 </div>
-
-<!-- County replace warning script -->
-<script>
-(function() {
-    const loadedCounties = {{ loaded_counties | tojson }};
-    const countySelect = document.getElementById('county_name');
-    const warning = document.getElementById('county-replace-warning');
-    const warningText = document.getElementById('county-warning-text');
-
-    countySelect.addEventListener('change', function() {
-        const selected = countySelect.value;
-        const existing = loadedCounties.find(c => c.name === selected);
-        if (existing) {
-            warningText.textContent = existing.name + ' already has ' + existing.count.toLocaleString() + ' voters loaded. Uploading will replace them.';
-            warning.classList.remove('hidden');
-        } else {
-            warning.classList.add('hidden');
-        }
-    });
-})();
-</script>
 
 <!-- Upload progress script -->
 <script>

@@ -8,6 +8,7 @@ from app.models.collector import Collector, DataEnterer, Organization, PaidColle
 from app.models.settings import Settings
 from app.models.voter_import import VoterImport, ImportStatus
 from app.models.print_job import PetitionPrintJob
+from app.models.county import County
 
 __all__ = [
     "User",
@@ -27,4 +28,5 @@ __all__ = [
     "ImportStatus",
     "PetitionPrintJob",
     "UserLoginEvent",
+    "County",
 ]

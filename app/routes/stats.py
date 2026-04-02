@@ -20,7 +20,7 @@ from datetime import date
 
 from flask import Blueprint, render_template, request, Response
 from flask_login import login_required
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 
 from app import db
 from app.models import Settings
@@ -111,7 +111,7 @@ def organizations():
 def export_matched_csv():
     """Download matched signatures as a CSV including sos_voterid and voter names."""
     from app.models import Settings
-    city_pattern = Settings.get_target_city_pattern()
+    city_aliases = Settings.get_city_aliases()
     extra_sql, extra_params, label = _export_filters()
 
     rows = db.session.execute(text(f"""
@@ -126,7 +126,7 @@ def export_matched_csv():
             s.residential_zip,
             s.registered_city,
             s.matched,
-            s.registered_city LIKE :city_pattern AS columbus_resident,
+            (s.registered_city IN :city_aliases) AS columbus_resident,
             b.book_number,
             c.first_name  AS collector_first,
             c.last_name   AS collector_last,
@@ -142,7 +142,7 @@ def export_matched_csv():
         LEFT JOIN collectors c ON c.id = b.collector_id
         WHERE s.matched = TRUE{extra_sql}
         ORDER BY b.book_number, s.id
-    """), {"city_pattern": city_pattern, **extra_params}).fetchall()
+    """).bindparams(bindparam("city_aliases", expanding=True)), {"city_aliases": city_aliases, **extra_params}).fetchall()
 
     buf = io.StringIO()
     writer = csv.writer(buf)
