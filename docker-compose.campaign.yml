@@ -1,3 +1,18 @@
+# Template for additional campaign instances.
+#
+# Usage — on the server:
+#   mkdir /opt/mandate-campaign2
+#   cd /opt/mandate-campaign2
+#   git clone <repo-url> .
+#   cp .env.campaign.example .env
+#   # Edit .env: set CAMPAIGN_CONTAINER_NAME, POSTGRES_PASSWORD, SECRET_KEY, ADMIN_EMAIL
+#   docker compose -f docker-compose.campaign.yml -p mandate-campaign2 up -d
+#
+# Then in campaign 1's directory:
+#   - Add CAMPAIGN2_DOMAIN to .env
+#   - Uncomment the matching site block in Caddyfile
+#   - docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+
 services:
   db:
     image: postgres:18
@@ -16,7 +31,7 @@ services:
 
   web:
     build: .
-    container_name: mandate_web_1
+    container_name: ${CAMPAIGN_CONTAINER_NAME}
     restart: unless-stopped
     depends_on:
       db:
@@ -33,30 +48,9 @@ services:
       - default
       - proxy
 
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    environment:
-      CAMPAIGN1_DOMAIN: ${CAMPAIGN1_DOMAIN}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - web
-    networks:
-      - default
-      - proxy
-
 volumes:
   postgres_data:
   uploads:
-  caddy_data:
-  caddy_config:
 
 networks:
   proxy:

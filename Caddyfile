@@ -1,6 +1,49 @@
-{$DOMAIN} {
+{
+	servers {
+		timeouts {
+			# How long Caddy will wait to read the full request body from the
+			# client. Voter file ZIPs can be hundreds of MB on slow connections;
+			# the default (no explicit timeout, varies by build) is too short.
+			read_timeout 10m
+		}
+	}
+}
+
+# ── Shared snippet ────────────────────────────────────────────────────────────
+# Proxy config applied to every campaign site. Import this in each site block.
+(mandate_proxy) {
 	request_body {
 		max_size 1GB
 	}
-	reverse_proxy web:8000
+
+	reverse_proxy {args[0]}:8000 {
+		transport http {
+			# How long Caddy will spend forwarding the request body upstream to
+			# Gunicorn. Must be at least as long as read_timeout above.
+			write_timeout 10m
+
+			# How long Caddy will wait for Gunicorn to finish processing and
+			# send a response (covers import startup, not the background job).
+			read_timeout 30s
+		}
+
+		# Flush response chunks to the browser immediately rather than
+		# buffering. Required for the import progress-polling XHR to receive
+		# status updates in real time.
+		flush_interval -1
+	}
 }
+
+# ── Campaign 1 ────────────────────────────────────────────────────────────────
+{$CAMPAIGN1_DOMAIN} {
+	import mandate_proxy mandate_web_1
+}
+
+# ── Additional campaigns ──────────────────────────────────────────────────────
+# To add a campaign: uncomment the block below, set CAMPAIGN2_DOMAIN in .env,
+# and add the corresponding CAMPAIGN_CONTAINER_NAME in the campaign's .env.
+# Then reload Caddy (no downtime): docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+
+# {$CAMPAIGN2_DOMAIN} {
+# 	import mandate_proxy mandate_web_2
+# }
