@@ -47,14 +47,17 @@ A Flask web application for validating Ohio election petition signatures against
 
 ```bash
 cp .env.example .env
-# Edit .env: set POSTGRES_PASSWORD, SECRET_KEY, DOMAIN, ADMIN_EMAIL, ADMIN_PASSWORD
+# Edit .env: set CAMPAIGN1_DOMAIN, POSTGRES_PASSWORD, SECRET_KEY, ADMIN_EMAIL
 
+docker network create mandate-proxy
 docker compose up -d
 ```
 
 On first start the entrypoint creates the database schema and seeds the admin user. On subsequent starts it runs `flask db upgrade` automatically.
 
 Open `https://your-domain` and sign in with your `ADMIN_EMAIL`.
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for full deployment instructions, including running multiple campaigns on the same server.
 
 ## Development Setup
 
@@ -87,11 +90,19 @@ flask dev wipe [--yes]                        # remove fake data
 | `ADMIN_EMAIL` | Seeded admin account email (Docker only) |
 | `ADMIN_PASSWORD` | Seeded admin account password (Docker only) |
 | `POSTGRES_PASSWORD` | PostgreSQL password (Docker only) |
-| `DOMAIN` | Public domain for Caddy TLS (Docker only) |
+| `CAMPAIGN1_DOMAIN` | Public domain for Caddy TLS — campaign 1 (Docker only) |
+| `SMTP_HOST` | SMTP server hostname (optional — can also be set via admin UI) |
+| `SMTP_PORT` | SMTP port, default `587` |
+| `SMTP_USER` | SMTP username |
+| `SMTP_FROM_EMAIL` | Sender address |
+| `SMTP_PASSWORD` | SMTP password |
+| `SMTP_USE_TLS` | `true` or `false`, default `true` |
+
+SMTP env vars act as defaults for all campaign instances. Settings configured via the admin UI take precedence.
 
 ## Application Settings (in-app)
 
-All runtime configuration is stored in the `settings` DB table, not environment variables. Configure via **Settings** (admin only):
+Most runtime configuration is stored in the `settings` DB table and managed via **Settings** (admin only). SMTP can alternatively be pre-configured via env vars (see above).
 
 | Setting | Description |
 |---|---|

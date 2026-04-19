@@ -74,6 +74,37 @@ See `.env.example`. Key vars:
 | `SECRET_KEY` | Flask session signing |
 | `DATABASE_URL` | PostgreSQL DSN (default: `postgresql://localhost:5432/mandate`) |
 | `UPLOAD_FOLDER` | Temp upload dir (default: `/tmp/petition-qc-uploads`) |
+| `CAMPAIGN1_DOMAIN` | Domain for Caddy TLS — campaign 1 (Docker only) |
+| `POSTGRES_PASSWORD` | PostgreSQL password (Docker only) |
+| `ADMIN_EMAIL` | Bootstrap admin email (Docker only) |
+| `ADMIN_PASSWORD` | Bootstrap admin password (Docker only) |
+| `SMTP_HOST` | SMTP server — env-var default, overridden by admin UI settings |
+| `SMTP_PORT` | SMTP port (default `587`) |
+| `SMTP_USER` | SMTP username |
+| `SMTP_FROM_EMAIL` | Sender address |
+| `SMTP_PASSWORD` | SMTP password |
+| `SMTP_USE_TLS` | `true`/`false` (default `true`) |
+
+### SMTP Priority
+
+`Settings.get_smtp_config()` checks the DB first, then falls back to `SMTP_*` env vars. Set the env vars in `.env` to share one SMTP config across all campaign instances without touching the admin UI on each.
+
+### Multi-Campaign Docker Setup
+
+Multiple campaigns run as isolated Docker stacks sharing a single Caddy instance. See `project-docs/INFRASTRUCTURE.md` and `DEPLOYMENT.md` for the full architecture.
+
+Key files:
+- `docker-compose.yml` — campaign 1 (includes Caddy, binds ports 80/443)
+- `docker-compose.campaign.yml` — template for campaigns 2+ (no Caddy)
+- `Caddyfile` — `(mandate_proxy)` snippet + one site block per campaign
+- `scripts/new-campaign.sh` — spin up a new campaign interactively
+- `scripts/update-campaigns.sh` — pull + rebuild all running campaigns
+- `scripts/remove-campaign.sh` — decommission a campaign
+
+The shared Docker network (`mandate-proxy`) must exist before starting any stack:
+```bash
+docker network create mandate-proxy
+```
 
 ---
 
