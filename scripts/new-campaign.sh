@@ -162,11 +162,24 @@ docker compose \
 
 echo "[ ok ] Campaign stack started"
 
-# ── Step 6: Reload Caddy ─────────────────────────────────────────────────────
-echo "[ .. ] Reloading Caddy..."
-docker compose -f "$CAMPAIGN1_DIR/docker-compose.yml" \
-  exec caddy caddy reload --config /etc/caddy/Caddyfile --force
-echo "[ ok ] Caddy reloaded"
+# ── Step 6: Reload or restart Caddy ──────────────────────────────────────────
+# If the Caddyfile was ever replaced rather than edited in-place (e.g. by
+# git pull or an editor that saves via temp-file rename), the container's bind
+# mount latches onto the old inode and caddy reload reads stale content.
+# Detect this by checking whether the container can see the new site block;
+# if not, restart Caddy so the bind mount re-establishes against the current
+# inode (~3s downtime).
+if docker compose -f "$CAMPAIGN1_DIR/docker-compose.yml" \
+    exec caddy grep -q "$CONTAINER_NAME" /etc/caddy/Caddyfile 2>/dev/null; then
+  echo "[ .. ] Reloading Caddy (zero downtime)..."
+  docker compose -f "$CAMPAIGN1_DIR/docker-compose.yml" \
+    exec caddy caddy reload --config /etc/caddy/Caddyfile --force
+  echo "[ ok ] Caddy reloaded"
+else
+  yellow "[ .. ] Caddyfile inode drift detected — restarting Caddy (~3s downtime)..."
+  docker compose -f "$CAMPAIGN1_DIR/docker-compose.yml" restart caddy
+  echo "[ ok ] Caddy restarted"
+fi
 
 # ── Step 7: Verify ────────────────────────────────────────────────────────────
 echo
