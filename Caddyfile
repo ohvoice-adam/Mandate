@@ -4,7 +4,7 @@
 			# How long Caddy will wait to read the full request body from the
 			# client. Voter file ZIPs can be hundreds of MB on slow connections;
 			# the default (no explicit timeout, varies by build) is too short.
-			read_timeout 10m
+			read_body 10m
 		}
 	}
 }
@@ -19,7 +19,7 @@
 	reverse_proxy {args[0]}:8000 {
 		transport http {
 			# How long Caddy will spend forwarding the request body upstream to
-			# Gunicorn. Must be at least as long as read_timeout above.
+			# Gunicorn. Must be at least as long as read_body above.
 			write_timeout 10m
 
 			# How long Caddy will wait for Gunicorn to finish processing and
