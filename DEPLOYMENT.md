@@ -22,7 +22,7 @@ cd petition-qc
 
 # Create your .env from the example
 cp .env.example .env
-nano .env          # set DOMAIN, POSTGRES_PASSWORD, SECRET_KEY
+nano .env          # set CAMPAIGN1_DOMAIN, POSTGRES_PASSWORD, SECRET_KEY
 ```
 
 Generate a strong secret key:
@@ -31,9 +31,10 @@ Generate a strong secret key:
 python3 -c "import secrets; print(secrets.token_hex(32))"
 ```
 
-Start everything:
+Create the shared proxy network and start everything:
 
 ```bash
+docker network create mandate-proxy
 docker compose up -d
 ```
 
@@ -68,7 +69,6 @@ docker compose down
 
 # Deploy an update (rebuilds only the web container — db and caddy are untouched)
 git pull
-docker compose build web
 docker compose up -d --no-deps web
 
 # Confirm the update applied
@@ -80,17 +80,88 @@ docker compose logs web --tail=50
 
 ### Reloading Caddy
 
-If you change the `Caddyfile`, reload Caddy's config without dropping connections:
+If you edit the `Caddyfile`, reload Caddy without dropping connections:
 
 ```bash
-docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile --force
 ```
 
-A full restart (`docker compose restart caddy`) is only needed if Caddy itself is updated.
+> **Note:** `caddy reload` reads the Caddyfile via the bind mount. If the file was replaced rather than edited in-place (e.g. by `git pull` or an editor that saves via temp-file rename), the container may hold a stale inode and reload will silently read old content. Use `docker compose restart caddy` (~3s downtime) if a reload doesn't take effect.
 
 ### Backups
 
 The upload volume (`uploads`) and database volume (`postgres_data`) are Docker named volumes. The built-in SFTP backup feature (Settings → Database Backup) works identically to the manual deployment — configure host, user, SSH key, and remote path in the web UI.
+
+---
+
+## Running Multiple Campaigns (Docker)
+
+Mandate supports running N simultaneous campaigns on one server. Each campaign is an isolated Docker stack with its own PostgreSQL database. A single Caddy instance (in campaign 1's stack) routes domains to each campaign via a shared Docker network.
+
+```
+Internet → Caddy (ports 80/443) ── mandate-proxy network ──┬── mandate_web_1:8000
+                                                             └── mandate_web_2:8000
+```
+
+### Add a Campaign
+
+```bash
+bash scripts/new-campaign.sh
+```
+
+Prompts for slug, domain, admin email, and deploy directory, then handles everything automatically: clones the repo, generates secrets, updates the Caddyfile, starts the stack, and reloads Caddy.
+
+### Update All Campaigns
+
+```bash
+bash scripts/update-campaigns.sh           # pull + rebuild all campaigns
+bash scripts/update-campaigns.sh --dry-run # preview only
+```
+
+Discovers all running campaigns automatically from Docker labels — no registry needed.
+
+### Remove a Campaign
+
+```bash
+bash scripts/remove-campaign.sh
+```
+
+Lists running campaigns, prompts for confirmation, optionally exports a database backup, removes the Caddyfile site block, stops containers, and optionally deletes volumes and the directory.
+
+> Campaign 1 (which runs Caddy) cannot be removed with this script.
+
+### Keeping the Caddyfile in Sync with Git
+
+`new-campaign.sh` appends site blocks directly to the Caddyfile on the server, so it permanently diverges from the repo. To prevent `git pull` conflicts, tell git to ignore local changes to that file:
+
+```bash
+git update-index --assume-unchanged Caddyfile
+```
+
+To temporarily re-enable tracking (e.g. to pull a Caddyfile fix):
+
+```bash
+git update-index --no-assume-unchanged Caddyfile
+git stash        # saves campaign blocks
+git pull
+git stash pop    # re-applies them (may need manual conflict resolution)
+git update-index --assume-unchanged Caddyfile
+```
+
+### SMTP for Multiple Campaigns
+
+Rather than configuring SMTP through the admin UI on every campaign, set it once in `.env`:
+
+```env
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=sender@example.com
+SMTP_FROM_EMAIL=sender@example.com
+SMTP_PASSWORD=your-smtp-password
+SMTP_USE_TLS=true
+```
+
+These act as defaults for all campaigns. Settings configured via the admin UI take precedence per-campaign.
 
 ---
 
