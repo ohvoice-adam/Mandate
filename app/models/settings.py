@@ -241,14 +241,28 @@ class Settings(db.Model):
 
     @classmethod
     def get_smtp_config(cls) -> dict:
-        """Return all SMTP-related settings as a dict."""
+        """Return SMTP settings, falling back to env vars when DB is unset.
+
+        Environment variables (SMTP_HOST, SMTP_PORT, SMTP_USER,
+        SMTP_FROM_EMAIL, SMTP_PASSWORD, SMTP_USE_TLS) act as defaults so all
+        campaigns can share a single SMTP configuration set in .env without
+        requiring admin UI setup on each instance.  A value stored in the DB
+        via the admin UI always takes precedence over the environment.
+        """
+        import os
+
+        def _smtp(key: str, env_var: str, default: str = "") -> str:
+            return cls.get(key) or os.environ.get(env_var, default)
+
         return {
-            "host": cls.get("smtp_host", ""),
-            "port": cls.get("smtp_port", "587"),
-            "user": cls.get("smtp_user", ""),
-            "from_email": cls.get("smtp_from_email", ""),
-            "use_tls": cls.get("smtp_use_tls", "true"),
-            "has_password": bool(cls.get("smtp_password")),
+            "host":       _smtp("smtp_host",       "SMTP_HOST"),
+            "port":       _smtp("smtp_port",       "SMTP_PORT", "587"),
+            "user":       _smtp("smtp_user",       "SMTP_USER"),
+            "from_email": _smtp("smtp_from_email", "SMTP_FROM_EMAIL"),
+            "use_tls":    _smtp("smtp_use_tls",    "SMTP_USE_TLS", "true"),
+            "has_password": bool(
+                cls.get("smtp_password") or os.environ.get("SMTP_PASSWORD")
+            ),
         }
 
     @classmethod

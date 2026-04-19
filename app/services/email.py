@@ -12,22 +12,22 @@ def is_configured() -> bool:
     """Return True if all required SMTP settings are present."""
     from app.models import Settings
 
-    return all(
-        Settings.get(k)
-        for k in ("smtp_host", "smtp_user", "smtp_from_email")
-    )
+    cfg = Settings.get_smtp_config()
+    return all([cfg["host"], cfg["user"], cfg["from_email"]])
 
 
 def send_email(to: str, subject: str, body_html: str, body_text: str) -> None:
     """Send an email via SMTP. Raises on failure."""
+    import os
     from app.models import Settings
 
-    host = Settings.get("smtp_host", "")
-    port = int(Settings.get("smtp_port", "587") or "587")
-    user = Settings.get("smtp_user", "")
-    password = Settings.get("smtp_password", "")
-    from_email = Settings.get("smtp_from_email", "")
-    use_tls = Settings.get("smtp_use_tls", "true").lower() != "false"
+    cfg = Settings.get_smtp_config()
+    host = cfg["host"]
+    port = int(cfg["port"] or "587")
+    user = cfg["user"]
+    from_email = cfg["from_email"]
+    use_tls = cfg["use_tls"].lower() != "false"
+    password = Settings.get("smtp_password") or os.environ.get("SMTP_PASSWORD", "")
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
