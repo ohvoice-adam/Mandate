@@ -47,6 +47,12 @@ services:
     networks:
       - default
       - proxy
+    deploy:
+      resources:
+        limits:
+          memory: 400m
+        reservations:
+          memory: 150m
 
 volumes:
   postgres_data:

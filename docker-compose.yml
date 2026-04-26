@@ -32,6 +32,12 @@ services:
     networks:
       - default
       - proxy
+    deploy:
+      resources:
+        limits:
+          memory: 400m
+        reservations:
+          memory: 150m
 
   caddy:
     image: caddy:2-alpine
