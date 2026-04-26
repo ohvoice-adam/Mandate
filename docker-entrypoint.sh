@@ -69,8 +69,11 @@ PYEOF
 
 echo "Starting Gunicorn..."
 exec gunicorn \
-    --workers 4 \
+    --workers 2 \
+    --worker-class gthread \
+    --threads 4 \
     --bind 0.0.0.0:8000 \
-    --timeout 3600 \
-    --worker-class sync \
+    --timeout 120 \
+    --max-requests 1000 \
+    --max-requests-jitter 100 \
     "app:create_app()"

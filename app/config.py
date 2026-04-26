@@ -53,6 +53,9 @@ class Config:
     # PostgreSQL is unreachable (avoids long hangs on startup).
     SQLALCHEMY_ENGINE_OPTIONS = {
         "connect_args": {"connect_timeout": 5},
+        "pool_size": 3,
+        "max_overflow": 2,
+        "pool_pre_ping": True,
     }
 
     # Search settings
