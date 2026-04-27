@@ -26,6 +26,23 @@ A Flask web application for validating Ohio election petition signatures against
 
 ### Administration
 - **User management** — three roles: Data Enterer, Organizer, Admin; accounts can be deactivated
+
+#### User Roles
+
+| Capability | Data Enterer | Organizer | Admin |
+|---|:---:|:---:|:---:|
+| Start/end entry sessions | ✓ | ✓ | ✓ |
+| Enter and undo signatures | ✓ | ✓ | ✓ |
+| View stats dashboard | ✓ | ✓ | ✓ |
+| Export CSV (matched, duplicates) | | ✓ | ✓ |
+| Manage collectors & organizations | | ✓ | ✓ |
+| Manage users (enterers & organizers) | | ✓ | ✓ |
+| Promote users to Admin | | | ✓ |
+| Import voter file / rollback | | | ✓ |
+| PDF petition printing | | | ✓ |
+| Application settings (branding, SMTP, backup) | | | ✓ |
+| System health dashboard | | | ✓ |
+| Export / import settings JSON | | | ✓ |
 - **Voter file import** — web-based CSV import with progress tracking, county-duplicate warning, and 24-hour rollback window
 - **Branding** — org name, logo upload with auto-extracted color palette, custom fonts (headline + body), white-label mode
 - **SMTP email** — configurable email for password resets and backup notifications
