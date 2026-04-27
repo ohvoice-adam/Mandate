@@ -52,32 +52,32 @@
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen transition-colors">
     <!-- Navigation -->
-    <nav class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+    <nav class="shadow-sm" style="background-color: {{ branding.primary_color or '#0c3e6b' }}">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
                 <!-- Left: logo + primary nav -->
                 <div class="flex items-center space-x-4">
-                    <a href="{{ url_for('main.index') }}" class="flex items-center space-x-2 text-xl font-bold text-navy-600 dark:text-navy-400">
+                    <a href="{{ url_for('main.index') }}" class="flex items-center space-x-2 text-xl font-bold text-white">
                         {% if branding.mode == "white-label" and branding.org_name %}
                             {% if branding.has_logo %}<img src="{{ url_for('settings.branding_logo') }}" class="h-8 w-auto" alt="">{% endif %}
                             <span class="font-display">{{ branding.org_name }}</span>
                         {% elif branding.mode == "dual" and branding.org_name %}
                             {% if branding.has_logo %}<img src="{{ url_for('settings.branding_logo') }}" class="h-8 w-auto" alt="">{% endif %}
                             <span class="font-display">{{ branding.org_name }}</span>
-                            <span class="text-sm font-normal font-display text-gray-400 dark:text-gray-500">· Mandate</span>
+                            <span class="text-sm font-normal font-display text-white/60">· Mandate</span>
                         {% else %}
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 15h5.575q.5 0 .75-.312t.25-.688t-.25-.687t-.75-.313H7q-.425 0-.712.288T6 14t.288.713T7 15m0-4h4q.425 0 .713-.288T12 10t-.288-.712T11 9H7q-.425 0-.712.288T6 10t.288.713T7 11m-3 8q-.825 0-1.412-.587T2 17V7q0-.825.588-1.412T4 5h16q.825 0 1.413.588T22 7v1.5q0 .425-.288.713T21 9.5t-.712-.288T20 8.5V7H4v10h6q.425 0 .713.288T11 18t-.288.713T10 19zm18.9-6.7q.125.125.125.275t-.125.275l-.9.9L20.25 12l.9-.9q.125-.125.275-.125t.275.125zm-1.5 2.05l-6.35 6.35q-.15.15-.337.225t-.388.075H13.5q-.2 0-.35-.15T13 20.5v-.825q0-.2.075-.387t.225-.338l6.35-6.35zM4 7v10z"/></svg>
                             <span class="font-display">Mandate</span>
                         {% endif %}
                     </a>
                     {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('signatures.entry') }}" class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-3 py-2">
+                    <a href="{{ url_for('signatures.entry') }}" class="text-white/80 hover:text-white hover:bg-white/10 px-3 py-2 rounded-md transition-colors">
                         Signatures
                     </a>
-                    <a href="{{ url_for('collectors.index') }}" class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-3 py-2">
+                    <a href="{{ url_for('collectors.index') }}" class="text-white/80 hover:text-white hover:bg-white/10 px-3 py-2 rounded-md transition-colors">
                         Collectors
                     </a>
-                    <a href="{{ url_for('help.index') }}" class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-3 py-2">
+                    <a href="{{ url_for('help.index') }}" class="text-white/80 hover:text-white hover:bg-white/10 px-3 py-2 rounded-md transition-colors">
                         Help
                     </a>
                     {% endif %}
@@ -87,7 +87,7 @@
                 <div class="flex items-center space-x-2">
                     <!-- Theme toggle -->
                     <button id="theme-toggle" type="button"
-                            class="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            class="p-2 rounded-lg text-white hover:bg-white/10"
                             title="Toggle theme">
                         <svg class="w-5 h-5 hidden dark:block" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"></path>
@@ -101,7 +101,7 @@
                     <!-- User menu -->
                     <div class="relative" id="user-menu-wrapper">
                         <button id="user-menu-btn" type="button"
-                                class="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                class="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg text-white hover:bg-white/10"
                                 aria-haspopup="true" aria-expanded="false">
                             <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
