@@ -281,12 +281,26 @@
         });
 
         xhr.addEventListener('load', function() {
-            // Follow the redirect the server sends after upload
+            if (xhr.status === 413) {
+                label.textContent = 'File too large — the server rejected the upload. Contact your administrator to increase the upload size limit.';
+                bar.classList.replace('bg-accent-500', 'bg-red-500');
+                btn.disabled = false;
+                btn.textContent = 'Upload and Import';
+                return;
+            }
+            if (xhr.status >= 400) {
+                label.textContent = 'Upload failed (HTTP ' + xhr.status + ') — please try again.';
+                bar.classList.replace('bg-accent-500', 'bg-red-500');
+                btn.disabled = false;
+                btn.textContent = 'Upload and Import';
+                return;
+            }
+            // Follow the redirect the server sends after a successful upload
             window.location.href = xhr.responseURL || '{{ url_for("imports.index") }}';
         });
 
         xhr.addEventListener('error', function() {
-            label.textContent = 'Upload failed — please try again.';
+            label.textContent = 'Upload failed — connection lost. Check your network and try again.';
             bar.classList.replace('bg-accent-500', 'bg-red-500');
             btn.disabled = false;
             btn.textContent = 'Upload and Import';
