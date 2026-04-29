@@ -6,7 +6,8 @@
 <div class="space-y-8">
     <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Print Books</h1>
 
-    <!-- Card 1: Template PDFs -->
+    <!-- Card 1: Template PDFs (admin only) -->
+    {% if current_user.is_admin %}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Template PDFs</h2>
         <form method="POST" action="{{ url_for('prints.save_templates') }}" enctype="multipart/form-data" class="space-y-6">
@@ -18,10 +19,21 @@
                         Cover Sheet PDF
                     </label>
                     {% if template_config.has_cover %}
-                    <p class="text-sm text-green-600 dark:text-green-400 mb-2 flex items-center gap-1">
-                        <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                        {{ template_config.cover_name }}
-                    </p>
+                    <div class="flex items-center gap-3 mb-2">
+                        <p class="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                            {{ template_config.cover_name }}
+                        </p>
+                        <form method="POST" action="{{ url_for('prints.delete_template') }}" class="inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="template_type" value="cover">
+                            <button type="submit"
+                                    onclick="return confirm('Remove the cover sheet template?')"
+                                    class="text-xs text-red-600 dark:text-red-400 hover:underline">
+                                Remove
+                            </button>
+                        </form>
+                    </div>
                     {% endif %}
                     <input type="file" name="cover_pdf" accept=".pdf"
                            class="block w-full text-sm text-gray-500 dark:text-gray-400
@@ -37,10 +49,21 @@
                         Petition Page PDF
                     </label>
                     {% if template_config.has_petition %}
-                    <p class="text-sm text-green-600 dark:text-green-400 mb-2 flex items-center gap-1">
-                        <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                        {{ template_config.petition_name }}
-                    </p>
+                    <div class="flex items-center gap-3 mb-2">
+                        <p class="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                            {{ template_config.petition_name }}
+                        </p>
+                        <form method="POST" action="{{ url_for('prints.delete_template') }}" class="inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="template_type" value="petition">
+                            <button type="submit"
+                                    onclick="return confirm('Remove the petition page template?')"
+                                    class="text-xs text-red-600 dark:text-red-400 hover:underline">
+                                Remove
+                            </button>
+                        </form>
+                    </div>
                     {% endif %}
                     <input type="file" name="petition_pdf" accept=".pdf"
                            class="block w-full text-sm text-gray-500 dark:text-gray-400
@@ -62,6 +85,7 @@
             </div>
         </form>
     </div>
+    {% endif %}
 
     <!-- Card 2: Generate Petition Books -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
