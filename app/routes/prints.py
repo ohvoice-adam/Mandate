@@ -20,7 +20,7 @@ from flask import Blueprint, Response, current_app, flash, redirect, render_temp
 from flask_login import current_user, login_required
 
 from app import db
-from app.models import admin_required
+from app.models import admin_required, organizer_required
 from app.models.print_job import PetitionPrintJob
 from app.models.settings import Settings
 from app.services.pdf_print import (
@@ -36,7 +36,7 @@ bp = Blueprint("prints", __name__)
 
 @bp.route("/", methods=["GET"])
 @login_required
-@admin_required
+@organizer_required
 def index():
     template_config = get_template_config()
     highest = get_highest_printed()
@@ -50,6 +50,24 @@ def index():
         jobs=jobs,
         allow_pdf_deletion=allow_pdf_deletion,
     )
+
+
+@bp.route("/delete-template", methods=["POST"])
+@login_required
+@admin_required
+def delete_template():
+    template_type = request.form.get("template_type")
+    if template_type == "cover":
+        db.session.query(Settings).filter(Settings.key.in_(["petition_cover_pdf", "petition_cover_pdf_name"])).delete(synchronize_session=False)
+        db.session.commit()
+        flash("Cover sheet template removed.", "success")
+    elif template_type == "petition":
+        db.session.query(Settings).filter(Settings.key.in_(["petition_page_pdf", "petition_page_pdf_name"])).delete(synchronize_session=False)
+        db.session.commit()
+        flash("Petition page template removed.", "success")
+    else:
+        flash("Unknown template type.", "error")
+    return redirect(url_for("prints.index"))
 
 
 @bp.route("/save-templates", methods=["POST"])
@@ -109,7 +127,7 @@ def save_templates():
 
 @bp.route("/generate", methods=["POST"])
 @login_required
-@admin_required
+@organizer_required
 def generate():
     template_config = get_template_config()
     if not template_config["has_cover"] or not template_config["has_petition"]:
@@ -178,7 +196,7 @@ def generate():
 
 @bp.route("/download/<int:job_id>", methods=["GET"])
 @login_required
-@admin_required
+@organizer_required
 def download(job_id):
     job = db.session.get(PetitionPrintJob, job_id)
     if not job:
