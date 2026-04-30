@@ -40,7 +40,17 @@
   <aside class="hidden lg:block w-56 flex-shrink-0 sticky top-6">
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 text-sm">
       <p class="font-semibold text-gray-900 dark:text-gray-100 mb-3">On this page</p>
-      <nav class="space-y-1">
+      <div class="relative mb-3">
+        <svg class="absolute left-2 top-2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+        </svg>
+        <input id="help-search" type="search" placeholder="Search help…"
+          class="w-full text-sm rounded border border-gray-300 dark:border-gray-600
+                 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
+                 pl-7 pr-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-navy-500
+                 placeholder-gray-400 dark:placeholder-gray-500">
+      </div>
+      <nav id="help-toc" class="space-y-1">
         {% set toc = [
           ('#overview',    'Overview'),
           ('#home',        'Home & Sessions'),
@@ -74,9 +84,14 @@
   </aside>
 
   {# ── Main Content ───────────────────────────────────────────────────── #}
-  <div class="flex-1 min-w-0 space-y-6">
+  <div id="help-content" class="flex-1 min-w-0 space-y-6">
 
     <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Help &amp; Documentation</h1>
+
+    <div id="help-no-results" hidden
+      class="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+      No sections match your search.
+    </div>
 
     {# ── Overview ── #}
     {% call section('overview', 'Overview') %}
@@ -449,4 +464,76 @@
 
   </div>{# end main content #}
 </div>{# end flex #}
+
+<script>
+(function () {
+  const input    = document.getElementById('help-search');
+  const sections = document.querySelectorAll('#help-content section[id]');
+  const tocLinks = document.querySelectorAll('#help-toc a[href^="#"]');
+  const noResult = document.getElementById('help-no-results');
+
+  const cache = new Map();
+  sections.forEach(s => cache.set(s.id, s.innerHTML));
+
+  function restoreAll() {
+    sections.forEach(s => { s.innerHTML = cache.get(s.id); });
+  }
+
+  function highlightNode(node, re) {
+    if (node.nodeType === 3) {
+      if (!re.test(node.textContent)) return;
+      re.lastIndex = 0;
+      const frag = document.createDocumentFragment();
+      let last = 0, m, text = node.textContent;
+      while ((m = re.exec(text))) {
+        frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+        const mark = document.createElement('mark');
+        mark.className = 'bg-yellow-200 dark:bg-yellow-700 rounded px-0.5';
+        mark.textContent = m[0];
+        frag.appendChild(mark);
+        last = m.index + m[0].length;
+      }
+      frag.appendChild(document.createTextNode(text.slice(last)));
+      node.parentNode.replaceChild(frag, node);
+    } else if (node.nodeType === 1
+        && node.tagName !== 'SCRIPT'
+        && node.tagName !== 'STYLE'
+        && node.tagName !== 'MARK'
+        && !node.closest('svg')) {
+      [...node.childNodes].forEach(c => highlightNode(c, re));
+    }
+  }
+
+  function doSearch() {
+    const q = input.value.trim();
+    restoreAll();
+
+    if (!q) {
+      sections.forEach(s => { s.hidden = false; });
+      tocLinks.forEach(a => a.classList.remove('opacity-40'));
+      noResult.hidden = true;
+      return;
+    }
+
+    const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    let any = false;
+
+    sections.forEach(s => {
+      const hit = s.textContent.toLowerCase().includes(q.toLowerCase());
+      s.hidden = !hit;
+      if (hit) { any = true; highlightNode(s, re); }
+    });
+
+    tocLinks.forEach(a => {
+      const id = a.getAttribute('href').slice(1);
+      const sec = document.getElementById(id);
+      a.classList.toggle('opacity-40', !sec || sec.hidden);
+    });
+
+    noResult.hidden = any;
+  }
+
+  input.addEventListener('input', doSearch);
+})();
+</script>
 {% endblock %}
