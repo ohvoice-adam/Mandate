@@ -14,7 +14,7 @@ Flask concepts used here:
   URL resolved by the endpoint name rather than a hard-coded path.
 """
 
-from datetime import date
+from datetime import date, datetime
 
 from flask import Blueprint, render_template, redirect, url_for, request, session, flash
 from flask_login import login_required, current_user
@@ -156,6 +156,7 @@ def end_session():
         batch = db.session.get(Batch, batch_id)
         if batch:
             batch.status = "complete"
+            batch.completed_at = datetime.utcnow()
             db.session.commit()
 
     flash("Session ended", "info")

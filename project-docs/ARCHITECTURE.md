@@ -63,7 +63,8 @@ app/
 │   ├── settings.py      # Settings (key-value store, all runtime config)
 │   ├── voter.py         # Voter (imported county voter file)
 │   ├── signature.py     # Signature (one per petition entry)
-│   ├── batch.py         # Batch (one data-entry session)
+│   ├── batch.py         # Batch (one data-entry session; status: open/complete/rolled_back)
+│   ├── batch_event.py   # BatchEvent (audit log for batch-level actions)
 │   ├── book.py          # Book (physical petition book)
 │   ├── collector.py     # Collector, DataEnterer, Organization, PaidCollector
 │   ├── voter_import.py  # VoterImport (import job state + progress)
@@ -74,6 +75,7 @@ app/
 │   ├── auth.py          # /auth/* — login, logout, password reset, invite flow
 │   ├── main.py          # / — home page, start/end data-entry session
 │   ├── signatures.py    # /signatures/* — voter search, record match/no-match
+│   ├── batches.py       # /batches/* — session history, rollback (enterer + organizer views)
 │   ├── users.py         # /users/* — user CRUD, invite link generation
 │   ├── collectors.py    # /collectors/* — collector and data-enterer CRUD
 │   ├── organizations.py # /organizations/* — organization CRUD
@@ -104,6 +106,7 @@ app/
 | `main` | `/` | Dashboard, book/batch start, session setup |
 | `auth` | `/auth` | Login, logout, password change, invite flow |
 | `signatures` | `/signatures` | Voter search (HTMX), signature entry & confirmation |
+| `batches` | `/batches` | Session history, batch rollback, audit event display |
 | `collectors` | `/collectors` | Collector CRUD, book assignment |
 | `stats` | `/stats` | Signature counts, city breakdown, CSV exports |
 | `imports` | `/imports` | CSV voter-file upload, progress polling, rollback |
@@ -118,6 +121,7 @@ app/
 | Blueprint | Does | Does NOT |
 |-----------|------|----------|
 | `signatures` | Search voters, record matches, verify session ownership | Manage books or collectors |
+| `batches` | List sessions, roll back completed batches, write audit events | Modify open sessions or individual signatures |
 | `imports` | Upload CSVs, spawn background thread, poll status | Modify existing signatures |
 | `prints` | Generate PDFs synchronously, store in DB | Write PDFs to disk |
 | `stats` | Aggregate SQL queries, stream CSV downloads | Modify any data |
@@ -167,8 +171,11 @@ Organization ──< Collector ──< Book ──< Batch ──< Signature
               └─< PaidCollector (explicit org↔collector link)
 
 User ──< Batch (enterer_id)
+     └─< BatchEvent (performed_by_id)
      └─< UserLoginEvent
      └─< PetitionPrintJob (generated_by_id)
+
+Batch ──< BatchEvent (audit log; FK SET NULL on batch delete)
 
 Voter (standalone; matched to Signature via sos_voterid)
 VoterImport (tracks import job state)
@@ -183,7 +190,8 @@ Settings (key-value config store)
 | `voters` | County voter file (imported CSV) | GIN trigram indexes on `last_name`, `residential_address1` |
 | `signatures` | Collected petition signatures | Address copied from voter at entry time (immutable audit trail) |
 | `books` | Physical petition books | `book_number` = human serial, `id` = internal PK |
-| `batches` | One data-entry session per book | `status`: open / closed |
+| `batches` | One data-entry session per book | `status`: open / complete / rolled_back; `completed_at` set when session ends |
+| `batch_events` | Audit log for batch-level actions | Rows survive batch deletion via `ON DELETE SET NULL`; `action = 'rolled_back'` records who rolled back, when, and how many signatures were deleted |
 | `collectors` | Field signature gatherers | Optional org affiliation |
 | `voter_imports` | Import job state machine | `cancel_requested` flag for cooperative cancellation |
 | `petition_print_jobs` | Generated PDF batches | `pdf_content` = base64 Text column (~1 MB+/row) |
@@ -245,14 +253,51 @@ POST /record-match    →    signatures.record_match()    Signature INSERT
   (HTMX)                   returns _success.html        db.session.commit()
 
 POST /end-session     →    main.end_session()           Batch status → complete
-                           session.pop(...)             Cookie cleared
+                           session.pop(...)             batch.completed_at set
+                                                        Cookie cleared
 ```
 
 The voter search runs a UNION of two queries:
 1. **Fast path**: `ILIKE 'prefix%'` on a B-tree index — near-instant for typed prefixes.
 2. **Fuzzy path**: `pg_trgm` similarity on a GIN index — handles typos and abbreviations.
 
-### 2. Voter File Import
+### 2. Session Rollback
+
+Rollback is synchronous — no background thread needed since it's a single bulk DELETE.
+
+```
+Browser                    Flask routes                 DB
+──────                     ────────────                 ──
+GET  /batches/my-sessions →  batches.my_sessions()      Batch.query filtered by enterer_id
+                              render my_sessions.html   sig_counts via GROUP BY
+
+GET  /batches/<id>/        →  batches.confirm_rollback() Count sigs in batch
+     confirm-rollback           returns _confirm_        HTMX swaps fragment into page
+     (HTMX)                     rollback.html
+
+POST /batches/<id>/rollback → batches.rollback()         _check_rollback_access():
+                                                           organizer/admin → always ok
+                                                           enterer → must own batch
+                              Signature.query             DELETE WHERE batch_id=id
+                              .filter_by(batch_id=id)
+                              .delete()
+                              batch.status = 'rolled_back'
+                              db.session.add(BatchEvent)  INSERT audit row
+                              db.session.commit()
+                              flash + redirect
+```
+
+**Access rules:**
+- Enterers: can roll back their own completed batches only (`batch.enterer_id == current_user.id`)
+- Organizers/Admins: can roll back any completed batch (no ownership check)
+- `batch.can_rollback` — returns `True` only when `status == 'complete'`; open and already-rolled-back batches are rejected
+
+**Audit trail:**
+- Every rollback inserts a `BatchEvent` row: `action='rolled_back'`, `performed_by_id`, `performed_at`, `signatures_deleted`
+- `batch_events.batch_id` uses `ON DELETE SET NULL` — the event is preserved even if the batch row is later removed
+- Enterers see "Rolled back by [name] on [date] — N removed" inline in their session history
+
+### 3. Voter File Import
 
 Imports run in a **background thread** so the HTTP request returns immediately.
 
@@ -264,7 +309,7 @@ Imports run in a **background thread** so the HTTP request returns immediately.
 6. **Rollback**: completed imports within 24 hours can be reversed. The service stores the pre-import max voter ID and re-deletes rows added since then.
 7. On app startup, stale `RUNNING` imports are auto-recovered by `VoterImportService.recover_stale_imports()`.
 
-### 3. PDF Print Generation
+### 4. PDF Print Generation
 
 Uses **PyMuPDF** (`fitz`) to stamp serial numbers onto uploaded PDF templates.
 
@@ -274,7 +319,7 @@ Uses **PyMuPDF** (`fitz`) to stamp serial numbers onto uploaded PDF templates.
 4. Download route reads the row, decodes, and streams with `Response(bytes, mimetype="application/pdf")`.
 5. Generation is synchronous — can be slow for large batches. Maximum 500 books per run. No PDF files are written to disk.
 
-### 4. Scheduled Backup
+### 5. Scheduled Backup
 
 Uses **APScheduler** `BackgroundScheduler` (daemon thread, same process). Every job receives the real `app` object and pushes `app.app_context()` for DB access.
 
@@ -288,7 +333,7 @@ A **PostgreSQL advisory lock** (`pg_try_advisory_xact_lock(0x4D414E45)`) prevent
 
 The `download_backup` route in `routes/settings.py` also runs `pg_dump` locally and streams the result to the browser using `send_file()` + `after_this_request()` for temp-file cleanup.
 
-### 5. Branding / Theming
+### 6. Branding / Theming
 
 All branding is database-driven and applied at request time via the context processor:
 
@@ -394,3 +439,4 @@ Browser request
 |------|--------|
 | 2026-03-31 | Merged root ARCHITECTURE.md into project-docs — unified authoritative + beginner-friendly doc |
 | 2026-03-31 | Replaced starter-kit placeholder with Mandate actual architecture |
+| 2026-04-30 | Added session rollback: `batches` blueprint, `BatchEvent` audit model, `batch_events` table, `batches.completed_at` column; updated data flows, blueprint table, directory layout |

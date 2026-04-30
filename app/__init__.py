@@ -89,6 +89,7 @@ def create_app(config_class=Config):
     from app.routes.imports import bp as imports_bp
     from app.routes.prints import bp as prints_bp
     from app.routes.help import bp as help_bp
+    from app.routes.batches import bp as batches_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(signatures_bp, url_prefix="/signatures")
@@ -101,6 +102,7 @@ def create_app(config_class=Config):
     app.register_blueprint(imports_bp, url_prefix="/imports")
     app.register_blueprint(prints_bp, url_prefix="/prints")
     app.register_blueprint(help_bp, url_prefix="/help")
+    app.register_blueprint(batches_bp, url_prefix="/batches")
 
     # @app.context_processor registers inject_globals() so that its return
     # dict is automatically merged into every Jinja2 template's variables.

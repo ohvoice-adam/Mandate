@@ -1,0 +1,24 @@
+<!-- htmx confirmation fragment — swapped in when "Roll Back" is clicked -->
+<div class="mt-3 rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4"
+     id="rollback-confirm-{{ batch.id }}">
+    <p class="text-sm font-medium text-red-800 dark:text-red-300 mb-3">
+        This will permanently delete
+        <strong>{{ count }} {{ "entry" if count == 1 else "entries" }}</strong>
+        from Book <strong>{{ batch.book_number }}</strong> and cannot be undone.
+    </p>
+    <div class="flex items-center gap-3">
+        <form method="POST"
+              action="{{ url_for('batches.rollback', batch_id=batch.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit"
+                    class="bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-1.5 px-4 rounded-md">
+                Confirm Rollback
+            </button>
+        </form>
+        <button type="button"
+                onclick="document.getElementById('rollback-confirm-{{ batch.id }}').remove()"
+                class="text-sm text-gray-600 dark:text-gray-400 hover:underline">
+            Cancel
+        </button>
+    </div>
+</div>
