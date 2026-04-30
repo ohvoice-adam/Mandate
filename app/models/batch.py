@@ -25,12 +25,18 @@ class Batch(db.Model):
     date_entered = db.Column(db.Date)
     status = db.Column(db.String(20), nullable=False, default="open")
     created_at = db.Column(db.DateTime, server_default=db.func.now())
+    completed_at = db.Column(db.DateTime)
 
     # Relationships
     book = db.relationship("Book", back_populates="batches")
     collector = db.relationship("Collector")
     enterer = db.relationship("User")
     signatures = db.relationship("Signature", back_populates="batch")
+    events = db.relationship("BatchEvent", back_populates="batch", order_by="BatchEvent.performed_at.desc()")
+
+    @property
+    def can_rollback(self):
+        return self.status == "complete"
 
     def __repr__(self):
         return f"<Batch {self.id} - Book {self.book_number}>"

@@ -12,7 +12,8 @@ A Flask web application for validating Ohio election petition signatures against
 - **Duplicate detection** — warns when the same voter appears in the same batch (red) or a different book (yellow)
 
 ### Session & Book Management
-- **Batch tracking** — each entry session is tracked as a `Batch` with `open`/`complete` status
+- **Batch tracking** — each entry session is tracked as a `Batch` with `open`/`complete`/`rolled_back` status
+- **Session rollback** — enterers can roll back their own completed sessions; organizers/admins can roll back any session; all rollbacks write a `BatchEvent` audit record
 - **Open batch warning** — alerts when starting a new session for a book with an unfinished batch
 - **Date validation** — check-in date is validated to be ≥ check-out date
 
@@ -122,7 +123,8 @@ app/
 │   ├── voter.py             # Voter file records
 │   ├── signature.py         # Petition signatures
 │   ├── book.py              # Petition books
-│   ├── batch.py             # Data entry sessions (status: open/complete)
+│   ├── batch.py             # Data entry sessions (status: open/complete/rolled_back)
+│   ├── batch_event.py       # Audit log for batch-level actions (rollbacks)
 │   ├── collector.py         # Collectors, Organizations, PaidCollectors
 │   ├── settings.py          # Key-value settings store
 │   ├── voter_import.py      # Import job tracking
@@ -131,6 +133,7 @@ app/
 │   ├── auth.py              # Login, logout, password change
 │   ├── main.py              # Home, session start/end, book check
 │   ├── signatures.py        # Search, record-match, undo
+│   ├── batches.py           # Session history, rollback (enterer + organizer views)
 │   ├── collectors.py        # Collector CRUD
 │   ├── organizations.py     # Organization CRUD
 │   ├── users.py             # User management
@@ -153,6 +156,7 @@ app/
     ├── base.html            # Layout, nav, Tailwind runtime config
     ├── main/                # Home / session management
     ├── signatures/          # Entry workflow, HTMX partials
+    ├── batches/             # Session history, rollback confirmation fragment
     ├── stats/               # Dashboard, collectors, enterers, books, organizations
     ├── settings/            # Settings, branding, backup, system health
     └── ...
@@ -165,6 +169,9 @@ app/
 | `/` | All | Home — start/end entry sessions |
 | `/signatures/entry` | All | Signature entry workflow |
 | `/signatures/undo-last` | All | Remove last signature (POST) |
+| `/batches/my-sessions` | All | Personal session history + self-service rollback |
+| `/batches/` | Organizer+ | All-batch management with filters + rollback |
+| `/batches/<id>/rollback` | All* | Roll back a completed batch (POST); enterers own batches only |
 | `/stats/` | All | Progress dashboard |
 | `/stats/collectors` | All | Collector quality metrics |
 | `/stats/enterers` | All | Enterer performance |
@@ -187,7 +194,8 @@ app/
 | `voters` | Voter file records (imported from SOS CSV) |
 | `signatures` | Verified petition signatures |
 | `books` | Petition books |
-| `batches` | Data entry sessions; `status`: open / complete |
+| `batches` | Data entry sessions; `status`: open / complete / rolled_back |
+| `batch_events` | Audit log for batch rollbacks (who, when, how many deleted) |
 | `collectors` | Signature collectors |
 | `organizations` | Organizations managing collectors |
 | `settings` | Key-value application configuration |

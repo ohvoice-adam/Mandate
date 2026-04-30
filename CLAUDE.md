@@ -28,7 +28,7 @@ Default dev credentials: `organizer@dev.example` / `enterer@dev.example`, passwo
 ### App Factory
 
 `app/__init__.py` is the entry point. `create_app()`:
-- Registers 11 blueprints (see `routes/`)
+- Registers 12 blueprints (see `routes/`)
 - Injects `app_version`, `branding`, `branding_palette` into every template via a context processor
 - Registers a before-request hook that forces a password change if `user.must_change_password` is set
 - Starts APScheduler for scheduled backups
@@ -60,6 +60,10 @@ Branding is fully database-driven. The context processor in `app/__init__.py` re
 ### Background Jobs
 
 `app/services/scheduler.py` uses APScheduler. Jobs: scheduled SCP backup (cron from Settings) and daily/weekly digest emails. Uses a PostgreSQL advisory lock (`0x4D414E45`) to prevent duplicate runs across workers. `apply_schedule(app)` is called whenever backup settings change.
+
+### Session Rollback
+
+`app/routes/batches.py` provides batch-level rollback for completed entry sessions. Enterers can roll back their own sessions; organizers/admins can roll back any session. Every rollback deletes all `Signature` rows for the batch, sets `batch.status = 'rolled_back'`, and writes a `BatchEvent` audit row (who, when, how many deleted). The `batch_events` table uses `ON DELETE SET NULL` on `batch_id` so audit records outlive their batch. Key files: `app/models/batch.py` (`can_rollback` property), `app/models/batch_event.py`, `app/templates/batches/`.
 
 ### Voter Import
 
