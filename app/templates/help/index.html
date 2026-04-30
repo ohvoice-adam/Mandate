@@ -45,13 +45,15 @@
           ('#overview',    'Overview'),
           ('#home',        'Home & Sessions'),
           ('#signatures',  'Signature Entry'),
+          ('#sessions',    'My Sessions'),
           ('#collectors',  'Collectors'),
           ('#stats',       'Statistics'),
         ] %}
         {% if current_user.is_admin_or_organizer %}
           {% set toc = toc + [
-            ('#users',         'Users'),
-            ('#organizations', 'Organizations'),
+            ('#users',             'Users'),
+            ('#organizations',     'Organizations'),
+            ('#batch-management',  'Batch Management'),
           ] %}
         {% endif %}
         {% if current_user.is_admin %}
@@ -92,11 +94,11 @@
           <tbody class="divide-y divide-gray-100 dark:divide-gray-700 text-gray-700 dark:text-gray-300">
             <tr>
               <td class="py-2 pr-4 font-medium">Enterer</td>
-              <td class="py-2">Home, Signature Entry, Collectors, Stats</td>
+              <td class="py-2">Home, Signature Entry, My Sessions, Collectors, Stats</td>
             </tr>
             <tr>
               <td class="py-2 pr-4 font-medium">Organizer</td>
-              <td class="py-2">Everything above, plus Users and Organizations</td>
+              <td class="py-2">Everything above, plus Users, Organizations, and Batch Management</td>
             </tr>
             <tr>
               <td class="py-2 pr-4 font-medium">Admin</td>
@@ -137,6 +139,36 @@
       {{ h3('Ending a Session') }}
       {{ p('Click End Session on the Home page when you have finished entering all signatures from a book. You can then start a new session for a different book.') }}
       {{ warn('Ending a session does not delete any entered signatures — it only clears the active book context so you can start a new one.') }}
+    {% endcall %}
+
+    {# ── My Sessions ── #}
+    {% call section('sessions', 'My Sessions') %}
+      {{ p('My Sessions shows a history of every entry session you have completed. Access it from the user menu in the top-right corner.') }}
+
+      {{ h3('What You Can See') }}
+      <ul class="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li>The date, book number, and collector for each session.</li>
+        <li>How many signatures were entered in that session.</li>
+        <li>The session status: <strong>In Progress</strong>, <strong>Complete</strong>, or <strong>Rolled Back</strong>.</li>
+        <li>For rolled-back sessions, who performed the rollback, when, and how many entries were removed.</li>
+      </ul>
+
+      {{ h3('Rolling Back a Session') }}
+      {{ p('If you made a mistake — entered signatures for the wrong book, selected the wrong collector, or entered data that needs to be discarded — you can roll back a completed session to remove all of its entries at once.') }}
+      <ol class="list-decimal list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li>Find the session in the <strong>My Sessions</strong> list.</li>
+        <li>Click <strong>Roll Back</strong> next to the session.</li>
+        <li>Confirm the action in the prompt. It will tell you exactly how many entries will be deleted.</li>
+      </ol>
+      {{ warn('Rolling back a session permanently deletes all signature entries from that session. This cannot be undone. The session record itself is kept so there is an audit trail.') }}
+      {{ tip('You can only roll back sessions with a Complete status. Sessions that are still In Progress can be corrected by using Undo Last Entry during the session.') }}
+
+      {{ h3('Rollback Rules') }}
+      <ul class="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li>Enterers can only roll back their own sessions.</li>
+        <li>Organizers and Admins can roll back any session from the Batch Management page.</li>
+        <li>Rolled-back sessions are preserved in the history as a permanent record — they are marked <strong>Rolled Back</strong> and show the name and date of whoever performed the rollback.</li>
+      </ul>
     {% endcall %}
 
     {# ── Signature Entry ── #}
@@ -276,6 +308,29 @@
       {{ p('An organization can only be deleted if no collectors or users are currently assigned to it. Reassign or remove those associations first.') }}
     {% endcall %}
     {% endif %}
+
+    {# ── Batch Management (organizer+) ── #}
+    {% if current_user.is_admin_or_organizer %}
+    {% call section('batch-management', 'Batch Management ' ~ '(Organizer / Admin)') %}
+      {{ p('Batch Management gives organizers and admins a complete view of all entry sessions across all enterers, with the ability to roll back any completed session.') }}
+
+      {{ h3('Accessing Batch Management') }}
+      {{ p('Open the user menu (top right) and click Batch Management. You can also filter by enterer or session status using the filter bar at the top of the page.') }}
+
+      {{ h3('Filters') }}
+      <ul class="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li><strong>Enterer</strong> — narrow the list to sessions entered by a specific person.</li>
+        <li><strong>Status</strong> — show only In Progress, Complete, or Rolled Back sessions.</li>
+      </ul>
+
+      {{ h3('Rolling Back Any Session') }}
+      {{ p('Organizers and admins can roll back any completed session — not just their own. The process is the same as in My Sessions: click Roll Back, review the confirmation (which shows the exact entry count), and confirm.') }}
+      {{ warn('Rolling back a session deletes all of its signature entries permanently. Use this carefully and only when you are certain the entries need to be removed.') }}
+
+      {{ h3('Audit Trail') }}
+      {{ p('Every rollback is recorded and visible to all organizers and admins. Rolled-back sessions display the name of the person who performed the rollback and the date. Enterers can also see this information in their own My Sessions view, so they know if one of their sessions was rolled back on their behalf.') }}
+    {% endcall %}
+    {% endif %}{# end organizer+ sections #}
 
     {# ── Admin-only sections ── #}
     {% if current_user.is_admin %}
