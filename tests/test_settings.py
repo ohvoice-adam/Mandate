@@ -209,3 +209,37 @@ def test_import_requires_admin(client, app):
         follow_redirects=False,
     )
     assert resp.status_code == 302
+
+
+# ---------------------------------------------------------------------------
+# get_email_context
+# ---------------------------------------------------------------------------
+
+def test_get_email_context_returns_db_site_url(app):
+    Settings.set("site_url", "https://petition.example.com")
+    Settings.set("branding_org_name", "Test Campaign")
+    ctx = Settings.get_email_context()
+    assert ctx["site_url"] == "https://petition.example.com"
+    assert ctx["org_name"] == "Test Campaign"
+
+
+def test_get_email_context_env_fallback(app, monkeypatch):
+    Settings.set("site_url", "")
+    monkeypatch.setenv("CAMPAIGN1_DOMAIN", "petition.example.com")
+    ctx = Settings.get_email_context()
+    assert ctx["site_url"] == "https://petition.example.com"
+
+
+def test_get_email_context_db_overrides_env(app, monkeypatch):
+    Settings.set("site_url", "https://override.example.com")
+    monkeypatch.setenv("CAMPAIGN1_DOMAIN", "env.example.com")
+    ctx = Settings.get_email_context()
+    assert ctx["site_url"] == "https://override.example.com"
+
+
+def test_get_email_context_empty_when_nothing_configured(app, monkeypatch):
+    Settings.set("site_url", "")
+    monkeypatch.delenv("CAMPAIGN1_DOMAIN", raising=False)
+    ctx = Settings.get_email_context()
+    assert ctx["site_url"] == ""
+    assert ctx["org_name"] == ""
