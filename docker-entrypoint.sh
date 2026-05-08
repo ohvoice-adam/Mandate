@@ -73,7 +73,7 @@ exec gunicorn \
     --worker-class gthread \
     --threads 4 \
     --bind 0.0.0.0:8000 \
-    --timeout 120 \
+    --timeout 600 \
     --max-requests 1000 \
     --max-requests-jitter 100 \
     "app:create_app()"

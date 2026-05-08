@@ -132,8 +132,9 @@ def _run_digest(app, frequency: str) -> None:
         if not entries:
             return
 
+        email_ctx = Settings.get_email_context()
         try:
-            email_service.send_backup_digest_email(notify_email, entries)
+            email_service.send_backup_digest_email(notify_email, entries, email_ctx)
             Settings.clear_digest_pending()
             # ↑ commits the transaction, releasing the advisory lock.
         except Exception:

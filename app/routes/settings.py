@@ -74,6 +74,7 @@ def index():
     smtp_config = Settings.get_smtp_config()
     smtp_configured = email_service.is_configured()
     notify_config = Settings.get_backup_notify_config()
+    site_url = Settings.get("site_url", "")
     branding_config = Settings.get_branding_config()
     branding_fonts = Settings.get_branding_fonts()
     from app.services.fonts import HEADLINE_FONTS, BODY_FONTS
@@ -92,6 +93,7 @@ def index():
         smtp_config=smtp_config,
         smtp_configured=smtp_configured,
         notify_config=notify_config,
+        site_url=site_url,
         branding_config=branding_config,
         branding_fonts=branding_fonts,
         headline_font_options=headline_font_options,
@@ -123,6 +125,8 @@ def save_backup_config():
         remote_path=request.form.get("scp_remote_path", ""),
         key_content=key_content,
     )
+
+    Settings.set("site_url", request.form.get("site_url", "").strip())
 
     schedule = request.form.get("backup_schedule", "")
     if schedule not in ("", "hourly", "daily", "weekly"):

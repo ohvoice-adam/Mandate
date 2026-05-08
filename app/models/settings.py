@@ -196,6 +196,24 @@ class Settings(db.Model):
         cls.set("backup_notify_failure", notify_failure)
 
     @classmethod
+    def get_email_context(cls) -> dict:
+        """Return shared context dict for backup notification emails.
+
+        site_url resolution: DB key ``site_url`` → ``CAMPAIGN1_DOMAIN`` env var
+        → ``""`` (caller renders no link).
+        """
+        import os
+        site_url = cls.get("site_url", "").strip()
+        if not site_url:
+            domain = os.environ.get("CAMPAIGN1_DOMAIN", "").strip()
+            if domain:
+                site_url = f"https://{domain}"
+        return {
+            "site_url": site_url,
+            "org_name": cls.get("branding_org_name", "").strip(),
+        }
+
+    @classmethod
     def get_digest_pending(cls) -> list:
         """Return list of ISO timestamps queued for digest email."""
         raw = cls.get("backup_digest_pending", "")

@@ -46,47 +46,80 @@ def send_email(to: str, subject: str, body_html: str, body_text: str) -> None:
     logger.info("Email sent to %s: %s", to, subject)
 
 
-def send_backup_success_email(to: str, backup_time_iso: str) -> None:
+def send_backup_success_email(to: str, backup_time_iso: str, email_ctx: dict | None = None) -> None:
     """Send a single-backup success notification."""
-    subject = "Backup Succeeded"
+    ctx = email_ctx or {}
+    org_name = ctx.get("org_name", "")
+    site_url = ctx.get("site_url", "")
+    prefix = f"{org_name} — " if org_name else ""
+    subject = f"{prefix}Backup Succeeded"
     backup_time = backup_time_iso[:19].replace("T", " ") if backup_time_iso else "unknown"
-    body_text = f"A database backup completed successfully at {backup_time} UTC."
-    body_html = f"<p>A database backup completed successfully at <strong>{backup_time} UTC</strong>.</p>"
+    footer_text = f"\nView app: {site_url}" if site_url else ""
+    footer_html = (
+        f'<p style="margin-top:20px;"><a href="{site_url}" style="color:#0c3e6b;">View Mandate →</a></p>'
+        if site_url else ""
+    )
+    body_text = f"A database backup completed successfully at {backup_time} UTC.{footer_text}"
+    body_html = (
+        f"<p>A database backup completed successfully at <strong>{backup_time} UTC</strong>.</p>"
+        f"{footer_html}"
+    )
     send_email(to, subject, body_html, body_text)
 
 
-def send_backup_failure_email(to: str, error_msg: str, backup_time_iso: str) -> None:
+def send_backup_failure_email(to: str, error_msg: str, backup_time_iso: str, email_ctx: dict | None = None) -> None:
     """Send an immediate failure alert with error detail."""
-    subject = "Backup Failed"
+    ctx = email_ctx or {}
+    org_name = ctx.get("org_name", "")
+    site_url = ctx.get("site_url", "")
+    prefix = f"{org_name} — " if org_name else ""
+    subject = f"{prefix}Backup Failed"
     backup_time = backup_time_iso[:19].replace("T", " ") if backup_time_iso else "unknown"
+    footer_text = f"\nView app: {site_url}" if site_url else ""
+    footer_html = (
+        f'<p style="margin-top:20px;"><a href="{site_url}" style="color:#0c3e6b;">View Mandate →</a></p>'
+        if site_url else ""
+    )
     body_text = (
         f"A database backup failed at {backup_time} UTC.\n\n"
-        f"Error: {error_msg}"
+        f"Error: {error_msg}{footer_text}"
     )
     body_html = (
         f"<p>A database backup failed at <strong>{backup_time} UTC</strong>.</p>"
         f"<p><strong>Error:</strong></p>"
         f"<pre style='background:#f5f5f5;padding:8px;border-radius:4px'>{error_msg}</pre>"
+        f"{footer_html}"
     )
     send_email(to, subject, body_html, body_text)
 
 
-def send_backup_digest_email(to: str, entries: list) -> None:
+def send_backup_digest_email(to: str, entries: list, email_ctx: dict | None = None) -> None:
     """Send a digest listing all successful backup timestamps."""
-    subject = f"Backup Digest — {len(entries)} backup{'s' if len(entries) != 1 else ''}"
+    ctx = email_ctx or {}
+    org_name = ctx.get("org_name", "")
+    site_url = ctx.get("site_url", "")
+    prefix = f"{org_name} — " if org_name else ""
+    count = len(entries)
+    subject = f"{prefix}Backup Digest — {count} backup{'s' if count != 1 else ''}"
     formatted = "\n".join(
         f"  • {ts[:19].replace('T', ' ')} UTC" for ts in entries
     )
+    footer_text = f"\nView app: {site_url}" if site_url else ""
+    footer_html = (
+        f'<p style="margin-top:20px;"><a href="{site_url}" style="color:#0c3e6b;">View Mandate →</a></p>'
+        if site_url else ""
+    )
     body_text = (
-        f"{len(entries)} backup{'s' if len(entries) != 1 else ''} completed successfully:\n\n"
-        f"{formatted}"
+        f"{count} backup{'s' if count != 1 else ''} completed successfully:\n\n"
+        f"{formatted}{footer_text}"
     )
     items_html = "".join(
         f"<li>{ts[:19].replace('T', ' ')} UTC</li>" for ts in entries
     )
     body_html = (
-        f"<p>{len(entries)} backup{'s' if len(entries) != 1 else ''} completed successfully:</p>"
+        f"<p>{count} backup{'s' if count != 1 else ''} completed successfully:</p>"
         f"<ul>{items_html}</ul>"
+        f"{footer_html}"
     )
     send_email(to, subject, body_html, body_text)
 

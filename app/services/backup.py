@@ -157,16 +157,17 @@ def _send_backup_notification(success: bool, error_msg: str | None) -> None:
     if not notify_email or not email_service.is_configured():
         return
 
+    email_ctx = Settings.get_email_context()
     backup_time = Settings.get("backup_last_run", "")
     if success:
         mode = Settings.get("backup_notify_success", "")
         if mode == "each":
-            email_service.send_backup_success_email(notify_email, backup_time)
+            email_service.send_backup_success_email(notify_email, backup_time, email_ctx)
         elif mode in ("daily", "weekly"):
             Settings.add_digest_pending(backup_time)
     else:
         if Settings.get("backup_notify_failure", "false") == "true":
-            email_service.send_backup_failure_email(notify_email, error_msg or "", backup_time)
+            email_service.send_backup_failure_email(notify_email, error_msg or "", backup_time, email_ctx)
 
 
 def _find_pg_dump(server_major: int | None) -> str:

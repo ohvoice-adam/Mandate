@@ -469,6 +469,19 @@
                 {% endif %}
 
                 <div>
+                    <label for="site_url" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Site URL
+                    </label>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                        Included as a link in backup notification emails.
+                    </p>
+                    <input type="url" name="site_url" id="site_url"
+                           value="{{ site_url }}"
+                           placeholder="https://petition.example.com"
+                           class="block w-full rounded-md bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white px-3 py-2 text-sm focus:border-navy-500 focus:ring-navy-500">
+                </div>
+
+                <div>
                     <label for="backup_notify_email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Notification Email
                     </label>
