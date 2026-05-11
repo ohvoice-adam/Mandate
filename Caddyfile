@@ -23,8 +23,9 @@
 			write_timeout 10m
 
 			# How long Caddy will wait for Gunicorn to finish processing and
-			# send a response (covers import startup, not the background job).
-			read_timeout 30s
+			# send a response. Must be at least as long as write_timeout so that
+			# Caddy does not time out mid-upload on slow connections.
+			read_timeout 10m
 		}
 
 		# Flush response chunks to the browser immediately rather than
