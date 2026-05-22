@@ -112,7 +112,7 @@ def run_backup_async(app) -> None:
 
 
 def _backup_thread(app) -> None:
-    """Background thread: dump the database and upload via SFTP."""
+    """Background thread: dump the database and send to each configured destination."""
     with app.app_context():
         from app import db
         from app.models import Settings
@@ -128,6 +128,7 @@ def _backup_thread(app) -> None:
             "key_content": Settings.get("backup_scp_key_content"),
             "remote_path": Settings.get("backup_scp_remote_path"),
         }
+        local_path = (Settings.get("backup_local_path") or "").strip()
 
         # Determine the PostgreSQL server major version so we can pick the
         # matching pg_dump binary (avoids "server version mismatch" errors).
@@ -142,14 +143,37 @@ def _backup_thread(app) -> None:
         schedule = Settings.get("backup_schedule", "")
 
         dump_file = None
+        errors: list[str] = []
         try:
             dump_file = _create_pg_dump(db_url, server_major)
-            _sftp_upload(dump_file, scp_config, schedule=schedule)
-            Settings.set("backup_last_status", "success")
-            try:
-                _send_backup_notification(success=True, error_msg=None)
-            except Exception:
-                logger.exception("Backup notification failed (backup itself succeeded)")
+
+            if is_remote_configured():
+                try:
+                    _sftp_upload(dump_file, scp_config, schedule=schedule)
+                except Exception as exc:
+                    logger.exception("Remote backup failed")
+                    errors.append(f"remote: {str(exc)[:200]}")
+
+            if is_local_configured():
+                try:
+                    _local_save(dump_file, local_path, schedule=schedule)
+                except Exception as exc:
+                    logger.exception("Local backup failed")
+                    errors.append(f"local: {str(exc)[:200]}")
+
+            if errors:
+                Settings.set("backup_last_status", f"error:{'; '.join(errors)}")
+                try:
+                    _send_backup_notification(success=False, error_msg="; ".join(errors))
+                except Exception:
+                    logger.exception("Backup notification failed (backup also failed)")
+            else:
+                Settings.set("backup_last_status", "success")
+                try:
+                    _send_backup_notification(success=True, error_msg=None)
+                except Exception:
+                    logger.exception("Backup notification failed (backup itself succeeded)")
+
         except Exception as exc:
             logger.exception("Backup failed")
             # Truncate long error messages to fit in the settings value column

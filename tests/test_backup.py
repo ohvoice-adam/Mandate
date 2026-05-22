@@ -243,3 +243,87 @@ class TestLocalSave:
                 _local_save(dump_path, "/nonexistent/path/mandate-test", schedule="")
         finally:
             os.unlink(dump_path)
+
+
+from unittest.mock import patch, MagicMock
+
+
+class TestBackupThread:
+    """Tests for _backup_thread independent-destination behavior."""
+
+    def _run_thread(self, app, remote_ok, local_ok, remote_raises=None, local_raises=None):
+        """Helper: run _backup_thread with mocked destinations."""
+        from app.services.backup import _backup_thread
+
+        sftp_mock = MagicMock(side_effect=remote_raises) if remote_raises else MagicMock()
+        local_mock = MagicMock(side_effect=local_raises) if local_raises else MagicMock()
+
+        with patch("app.services.backup.is_remote_configured", return_value=remote_ok), \
+             patch("app.services.backup.is_local_configured", return_value=local_ok), \
+             patch("app.services.backup._create_pg_dump", return_value="/tmp/fake.dump"), \
+             patch("app.services.backup._sftp_upload", sftp_mock), \
+             patch("app.services.backup._local_save", local_mock), \
+             patch("app.services.backup._send_backup_notification"), \
+             patch("os.path.exists", return_value=True), \
+             patch("os.unlink"):
+            _backup_thread(app)
+
+        return sftp_mock, local_mock
+
+    def test_both_succeed_sets_success_status(self, app):
+        from app.models import Settings
+        self._run_thread(app, remote_ok=True, local_ok=True)
+        assert Settings.get("backup_last_status") == "success"
+
+    def test_remote_fails_local_still_runs(self, app):
+        from app.models import Settings
+        _, local_mock = self._run_thread(
+            app, remote_ok=True, local_ok=True,
+            remote_raises=RuntimeError("SFTP timeout"),
+        )
+        local_mock.assert_called_once()
+        status = Settings.get("backup_last_status")
+        assert status.startswith("error:")
+        assert "remote" in status
+
+    def test_local_fails_remote_still_runs(self, app):
+        from app.models import Settings
+        sftp_mock, _ = self._run_thread(
+            app, remote_ok=True, local_ok=True,
+            local_raises=RuntimeError("disk full"),
+        )
+        sftp_mock.assert_called_once()
+        status = Settings.get("backup_last_status")
+        assert status.startswith("error:")
+        assert "local" in status
+
+    def test_only_remote_configured_skips_local(self, app):
+        from app.models import Settings
+        sftp_mock, local_mock = self._run_thread(app, remote_ok=True, local_ok=False)
+        sftp_mock.assert_called_once()
+        local_mock.assert_not_called()
+        assert Settings.get("backup_last_status") == "success"
+
+    def test_only_local_configured_skips_remote(self, app):
+        from app.models import Settings
+        sftp_mock, local_mock = self._run_thread(app, remote_ok=False, local_ok=True)
+        sftp_mock.assert_not_called()
+        local_mock.assert_called_once()
+        assert Settings.get("backup_last_status") == "success"
+
+    def test_pgdump_failure_sets_error_status(self, app):
+        from app.models import Settings
+        from app.services.backup import _backup_thread
+
+        with patch("app.services.backup.is_remote_configured", return_value=True), \
+             patch("app.services.backup.is_local_configured", return_value=False), \
+             patch("app.services.backup._create_pg_dump",
+                   side_effect=RuntimeError("pg_dump crashed")), \
+             patch("app.services.backup._send_backup_notification"), \
+             patch("os.path.exists", return_value=False), \
+             patch("os.unlink"):
+            _backup_thread(app)
+
+        status = Settings.get("backup_last_status")
+        assert status.startswith("error:")
+        assert "pg_dump crashed" in status
