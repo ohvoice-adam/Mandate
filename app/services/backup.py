@@ -58,6 +58,8 @@ def is_remote_configured() -> bool:
     """Return True if SFTP backup is enabled and all SCP settings are present."""
     from app.models import Settings
 
+    # Default "true" preserves legacy behaviour: pre-existing installs without this key
+    # still attempt remote backup (gated by SCP credential checks below).
     if Settings.get("backup_enable_remote", "true") != "true":
         return False
     return all(

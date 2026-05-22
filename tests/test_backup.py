@@ -44,6 +44,14 @@ class TestSaveBackupConfigDestinationFields:
         )
         assert Settings.get_backup_config()["local_path"] == "/var/backups"
 
+    def test_saves_enable_remote_from_checkbox_value(self, app):
+        from app.models import Settings
+        Settings.save_backup_config(
+            host="h", port="22", user="u", remote_path="/r",
+            enable_remote="1", enable_local="false", local_path="",
+        )
+        assert Settings.get_backup_config()["enable_remote"] == "true"
+
 
 class TestIsRemoteConfigured:
     def _set_all_scp(self):
@@ -74,6 +82,16 @@ class TestIsRemoteConfigured:
         # no SCP settings set
         assert is_remote_configured() is False
 
+    def test_false_when_one_scp_field_missing(self, app):
+        from app.models import Settings
+        from app.services.backup import is_remote_configured
+        Settings.set("backup_enable_remote", "true")
+        Settings.set("backup_scp_host", "host.example.com")
+        Settings.set("backup_scp_user", "user")
+        Settings.set("backup_scp_key_content", "fake-key")
+        # backup_scp_remote_path intentionally omitted
+        assert is_remote_configured() is False
+
 
 class TestIsLocalConfigured:
     def test_true_when_enabled_and_path_set(self, app):
@@ -95,6 +113,13 @@ class TestIsLocalConfigured:
         from app.services.backup import is_local_configured
         Settings.set("backup_enable_local", "true")
         # no path set
+        assert is_local_configured() is False
+
+    def test_false_when_path_is_whitespace_only(self, app):
+        from app.models import Settings
+        from app.services.backup import is_local_configured
+        Settings.set("backup_enable_local", "true")
+        Settings.set("backup_local_path", "   ")
         assert is_local_configured() is False
 
 
