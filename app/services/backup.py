@@ -141,20 +141,22 @@ def _backup_thread(app) -> None:
             server_major = None
 
         schedule = Settings.get("backup_schedule", "")
+        do_remote = is_remote_configured()
+        do_local = is_local_configured()
 
         dump_file = None
         errors: list[str] = []
         try:
             dump_file = _create_pg_dump(db_url, server_major)
 
-            if is_remote_configured():
+            if do_remote:
                 try:
                     _sftp_upload(dump_file, scp_config, schedule=schedule)
                 except Exception as exc:
                     logger.exception("Remote backup failed")
                     errors.append(f"remote: {str(exc)[:200]}")
 
-            if is_local_configured():
+            if do_local:
                 try:
                     _local_save(dump_file, local_path, schedule=schedule)
                 except Exception as exc:

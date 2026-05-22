@@ -264,8 +264,8 @@ class TestBackupThread:
              patch("app.services.backup._sftp_upload", sftp_mock), \
              patch("app.services.backup._local_save", local_mock), \
              patch("app.services.backup._send_backup_notification"), \
-             patch("os.path.exists", return_value=True), \
-             patch("os.unlink"):
+             patch("app.services.backup.os.path.exists", return_value=True), \
+             patch("app.services.backup.os.unlink"):
             _backup_thread(app)
 
         return sftp_mock, local_mock
@@ -320,8 +320,8 @@ class TestBackupThread:
              patch("app.services.backup._create_pg_dump",
                    side_effect=RuntimeError("pg_dump crashed")), \
              patch("app.services.backup._send_backup_notification"), \
-             patch("os.path.exists", return_value=False), \
-             patch("os.unlink"):
+             patch("app.services.backup.os.path.exists", return_value=False), \
+             patch("app.services.backup.os.unlink"):
             _backup_thread(app)
 
         status = Settings.get("backup_last_status")
