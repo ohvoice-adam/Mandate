@@ -161,6 +161,9 @@ class Settings(db.Model):
             "schedule": cls.get("backup_schedule", ""),
             "last_run": cls.get("backup_last_run", ""),
             "last_status": cls.get("backup_last_status", ""),
+            "enable_remote": cls.get("backup_enable_remote", "true"),
+            "enable_local": cls.get("backup_enable_local", "false"),
+            "local_path": cls.get("backup_local_path", ""),
         }
 
     @classmethod
@@ -240,8 +243,11 @@ class Settings(db.Model):
         user: str,
         remote_path: str,
         key_content: str | None = None,
+        enable_remote: str = "true",
+        enable_local: str = "false",
+        local_path: str = "",
     ) -> None:
-        """Persist SCP backup configuration.
+        """Persist SCP backup configuration and destination settings.
 
         If *key_content* is provided it replaces any previously stored key.
         Omit (or pass None) to keep the existing stored key unchanged.
@@ -252,6 +258,9 @@ class Settings(db.Model):
         cls.set("backup_scp_remote_path", remote_path.strip())
         if key_content is not None:
             cls.set("backup_scp_key_content", key_content)
+        cls.set("backup_enable_remote", enable_remote)
+        cls.set("backup_enable_local", enable_local)
+        cls.set("backup_local_path", local_path.strip())
 
     # ------------------------------------------------------------------
     # SMTP / email settings
