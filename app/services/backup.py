@@ -511,6 +511,73 @@ def _apply_retention(sftp, remote_dir: str, schedule: str) -> None:
                 logger.warning("Retention: could not remove %s: %s", name, exc)
 
 
+def _apply_local_retention(local_dir: str, schedule: str) -> None:
+    """Delete local backup files that fall outside the retention policy.
+
+    Uses the same keep rules as _apply_retention (the SFTP version).
+    """
+    if schedule not in ("hourly", "daily", "weekly"):
+        return
+
+    try:
+        names = os.listdir(local_dir)
+    except Exception as exc:
+        logger.warning("Local retention: could not list %s: %s", local_dir, exc)
+        return
+
+    backups = sorted(
+        ((dt, n) for n in names if (dt := _parse_backup_dt(n)) is not None),
+        reverse=True,
+    )
+
+    keep: set[str] = set()
+
+    if schedule == "hourly":
+        for _, name in backups[:24]:
+            keep.add(name)
+        dailies = [(dt, n) for dt, n in backups if dt.hour == 2 and dt.minute == 0]
+        for _, name in dailies[:7]:
+            keep.add(name)
+        weeklies = [(dt, n) for dt, n in dailies if dt.weekday() == 6]
+        for _, name in weeklies[:4]:
+            keep.add(name)
+    elif schedule == "daily":
+        for _, name in backups[:7]:
+            keep.add(name)
+        weeklies = [
+            (dt, n) for dt, n in backups
+            if dt.weekday() == 6 and dt.hour == 2 and dt.minute == 0
+        ]
+        for _, name in weeklies[:4]:
+            keep.add(name)
+    elif schedule == "weekly":
+        for _, name in backups[:4]:
+            keep.add(name)
+
+    for dt, name in backups:
+        if name not in keep:
+            path = os.path.join(local_dir, name)
+            try:
+                os.remove(path)
+                logger.info("Local retention: removed %s", name)
+            except Exception as exc:
+                logger.warning("Local retention: could not remove %s: %s", name, exc)
+
+
+def _local_save(dump_path: str, local_dir: str, schedule: str = "") -> None:
+    """Copy the dump file to local_dir and apply the local retention policy."""
+    import shutil
+
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    dest_filename = f"petition-qc-backup-{timestamp}.dump"
+    dest_path = os.path.join(local_dir, dest_filename)
+    try:
+        shutil.copy2(dump_path, dest_path)
+    except Exception as exc:
+        raise RuntimeError(f"Local backup copy failed: {exc}") from exc
+    _apply_local_retention(local_dir, schedule)
+
+
 # ---------------------------------------------------------------------------
 # SFTP upload
 # ---------------------------------------------------------------------------

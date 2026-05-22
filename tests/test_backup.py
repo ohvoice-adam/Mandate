@@ -1,4 +1,8 @@
 """Tests for app/services/backup.py and backup-related settings."""
+import os
+import tempfile
+from datetime import datetime
+
 import pytest
 
 
@@ -145,3 +149,97 @@ class TestIsConfigured:
         from app.services.backup import is_configured
         # clean DB — nothing set
         assert is_configured() is False
+
+
+class TestApplyLocalRetention:
+    def _make_backup_files(self, tmp_path, timestamps):
+        """Create empty backup files with the given timestamp strings (YYYYMMDD-HHMMSS)."""
+        for ts in timestamps:
+            (tmp_path / f"petition-qc-backup-{ts}.dump").touch()
+
+    def test_daily_keeps_seven_most_recent(self, tmp_path):
+        from app.services.backup import _apply_local_retention
+        # 10 daily files at 10:00 (not 02:00, so no weekly overlap)
+        timestamps = [
+            datetime(2024, 1, i + 1, 10, 0, 0).strftime("%Y%m%d-%H%M%S")
+            for i in range(10)
+        ]
+        self._make_backup_files(tmp_path, timestamps)
+
+        _apply_local_retention(str(tmp_path), "daily")
+
+        remaining = sorted(f.name for f in tmp_path.iterdir())
+        assert len(remaining) == 7
+        # The 7 most recent should be kept (Jan 4–10)
+        assert "petition-qc-backup-20240110-100000.dump" in remaining
+        assert "petition-qc-backup-20240101-100000.dump" not in remaining
+
+    def test_weekly_keeps_four_most_recent(self, tmp_path):
+        from app.services.backup import _apply_local_retention
+        # 6 Sunday files at 02:00
+        timestamps = [
+            "20240107-020000",
+            "20240114-020000",
+            "20240121-020000",
+            "20240128-020000",
+            "20240204-020000",
+            "20240211-020000",
+        ]
+        self._make_backup_files(tmp_path, timestamps)
+
+        _apply_local_retention(str(tmp_path), "weekly")
+
+        remaining = sorted(f.name for f in tmp_path.iterdir())
+        assert len(remaining) == 4
+        assert "petition-qc-backup-20240211-020000.dump" in remaining
+        assert "petition-qc-backup-20240107-020000.dump" not in remaining
+
+    def test_unknown_schedule_keeps_all(self, tmp_path):
+        from app.services.backup import _apply_local_retention
+        timestamps = ["20240101-020000", "20240102-020000", "20240103-020000"]
+        self._make_backup_files(tmp_path, timestamps)
+
+        _apply_local_retention(str(tmp_path), "")
+
+        assert len(list(tmp_path.iterdir())) == 3
+
+    def test_non_matching_files_are_ignored(self, tmp_path):
+        from app.services.backup import _apply_local_retention
+        # Only 3 valid backups — the README should not be touched
+        self._make_backup_files(tmp_path, [
+            "20240101-020000", "20240102-020000", "20240103-020000",
+        ])
+        (tmp_path / "README.txt").touch()
+
+        _apply_local_retention(str(tmp_path), "daily")
+
+        assert (tmp_path / "README.txt").exists()
+
+
+class TestLocalSave:
+    def test_copies_dump_to_destination(self, tmp_path):
+        from app.services.backup import _local_save
+
+        fd, dump_path = tempfile.mkstemp(suffix=".dump")
+        os.write(fd, b"fake dump content")
+        os.close(fd)
+        try:
+            _local_save(dump_path, str(tmp_path), schedule="")
+            files = list(tmp_path.iterdir())
+            assert len(files) == 1
+            assert files[0].name.startswith("petition-qc-backup-")
+            assert files[0].name.endswith(".dump")
+            assert files[0].read_bytes() == b"fake dump content"
+        finally:
+            os.unlink(dump_path)
+
+    def test_raises_runtime_error_on_bad_directory(self, tmp_path):
+        from app.services.backup import _local_save
+
+        fd, dump_path = tempfile.mkstemp(suffix=".dump")
+        os.close(fd)
+        try:
+            with pytest.raises(RuntimeError, match="Local backup copy failed"):
+                _local_save(dump_path, "/nonexistent/path/mandate-test", schedule="")
+        finally:
+            os.unlink(dump_path)
