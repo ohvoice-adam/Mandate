@@ -118,12 +118,19 @@ def save_backup_config():
         if not key_content.strip():
             key_content = None
 
+    enable_remote = "true" if request.form.get("backup_enable_remote") else "false"
+    enable_local = "true" if request.form.get("backup_enable_local") else "false"
+    local_path = request.form.get("backup_local_path", "").strip()
+
     Settings.save_backup_config(
         host=request.form.get("scp_host", ""),
         port=request.form.get("scp_port", "22"),
         user=request.form.get("scp_user", ""),
         remote_path=request.form.get("scp_remote_path", ""),
         key_content=key_content,
+        enable_remote=enable_remote,
+        enable_local=enable_local,
+        local_path=local_path,
     )
 
     Settings.set("site_url", request.form.get("site_url", "").strip())
@@ -155,8 +162,8 @@ def save_backup_config():
 def test_backup_connection():
     """Test the SFTP connection and return JSON {ok, message}."""
     try:
-        if not backup_service.is_configured():
-            return jsonify(ok=False, message="Backup is not fully configured.")
+        if not backup_service.is_remote_configured():
+            return jsonify(ok=False, message="SFTP backup is not fully configured.")
 
         scp_config = {
             "host": Settings.get("backup_scp_host"),
