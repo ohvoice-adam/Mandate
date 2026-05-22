@@ -327,3 +327,54 @@ class TestBackupThread:
         status = Settings.get("backup_last_status")
         assert status.startswith("error:")
         assert "pg_dump crashed" in status
+
+
+class TestSaveBackupConfigRoute:
+    def test_stores_destination_settings(self, client, app):
+        from app.models import Settings
+        from app import db
+        from tests.conftest import make_user, login
+
+        admin = make_user(role="admin")
+        db.session.commit()
+        login(client, admin)
+
+        resp = client.post("/settings/save-backup-config", data={
+            "backup_enable_remote": "1",
+            "backup_enable_local": "1",
+            "backup_local_path": "/var/backups/mandate",
+            "scp_host": "backup.example.com",
+            "scp_port": "22",
+            "scp_user": "backupuser",
+            "scp_remote_path": "/backups",
+            "backup_schedule": "daily",
+            "backup_notify_success": "",
+        }, follow_redirects=False)
+
+        assert resp.status_code == 302
+        assert Settings.get("backup_enable_remote") == "true"
+        assert Settings.get("backup_enable_local") == "true"
+        assert Settings.get("backup_local_path") == "/var/backups/mandate"
+
+    def test_unchecked_remote_stores_false(self, client, app):
+        from app.models import Settings
+        from app import db
+        from tests.conftest import make_user, login
+
+        admin = make_user(role="admin")
+        db.session.commit()
+        login(client, admin)
+
+        # backup_enable_remote not in form data (checkbox unchecked)
+        client.post("/settings/save-backup-config", data={
+            "backup_enable_local": "1",
+            "backup_local_path": "/var/backups",
+            "scp_host": "",
+            "scp_port": "22",
+            "scp_user": "",
+            "scp_remote_path": "",
+            "backup_schedule": "",
+            "backup_notify_success": "",
+        }, follow_redirects=False)
+
+        assert Settings.get("backup_enable_remote") == "false"
