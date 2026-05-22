@@ -2,6 +2,7 @@
 import os
 import tempfile
 from datetime import datetime
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -245,9 +246,6 @@ class TestLocalSave:
             os.unlink(dump_path)
 
 
-from unittest.mock import patch, MagicMock
-
-
 class TestBackupThread:
     """Tests for _backup_thread independent-destination behavior."""
 
@@ -310,6 +308,18 @@ class TestBackupThread:
         sftp_mock.assert_not_called()
         local_mock.assert_called_once()
         assert Settings.get("backup_last_status") == "success"
+
+    def test_both_fail_status_includes_both_errors(self, app):
+        from app.models import Settings
+        self._run_thread(
+            app, remote_ok=True, local_ok=True,
+            remote_raises=RuntimeError("SFTP timeout"),
+            local_raises=RuntimeError("disk full"),
+        )
+        status = Settings.get("backup_last_status")
+        assert status.startswith("error:")
+        assert "remote" in status
+        assert "local" in status
 
     def test_pgdump_failure_sets_error_status(self, app):
         from app.models import Settings

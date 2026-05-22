@@ -396,7 +396,7 @@
             </div>
 
             <!-- SFTP fields (hidden when SFTP unchecked) -->
-            <div id="sftp-config-section">
+            <div id="sftp-config-section" {% if backup_config.enable_remote != 'true' %}style="display:none"{% endif %}>
             <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">SCP / SFTP Configuration</h3>
 
             <div class="grid grid-cols-3 gap-4">
@@ -474,7 +474,7 @@
             </div><!-- end sftp-config-section -->
 
             <!-- Local directory field (hidden when local unchecked) -->
-            <div id="local-config-section">
+            <div id="local-config-section" {% if backup_config.enable_local != 'true' %}style="display:none"{% endif %}>
                 <div>
                     <label for="backup_local_path" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Local Directory

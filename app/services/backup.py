@@ -594,14 +594,18 @@ def _local_save(dump_path: str, local_dir: str, schedule: str = "") -> None:
     """Copy the dump file to local_dir and apply the local retention policy."""
     import shutil
 
+    abs_dir = os.path.realpath(local_dir)
+    if not os.path.isabs(abs_dir):
+        raise RuntimeError(f"Local backup directory must be an absolute path, got: {local_dir!r}")
+
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     dest_filename = f"petition-qc-backup-{timestamp}.dump"
-    dest_path = os.path.join(local_dir, dest_filename)
+    dest_path = os.path.join(abs_dir, dest_filename)
     try:
         shutil.copy2(dump_path, dest_path)
     except Exception as exc:
         raise RuntimeError(f"Local backup copy failed: {exc}") from exc
-    _apply_local_retention(local_dir, schedule)
+    _apply_local_retention(abs_dir, schedule)
 
 
 # ---------------------------------------------------------------------------
