@@ -54,10 +54,12 @@ def create_local_dump() -> str:
     return _create_pg_dump(db_url, server_major)
 
 
-def is_configured() -> bool:
-    """Return True if all required backup settings are present."""
+def is_remote_configured() -> bool:
+    """Return True if SFTP backup is enabled and all SCP settings are present."""
     from app.models import Settings
 
+    if Settings.get("backup_enable_remote", "true") != "true":
+        return False
     return all(
         Settings.get(k)
         for k in (
@@ -67,6 +69,20 @@ def is_configured() -> bool:
             "backup_scp_remote_path",
         )
     )
+
+
+def is_local_configured() -> bool:
+    """Return True if local backup is enabled and a local path is configured."""
+    from app.models import Settings
+
+    if Settings.get("backup_enable_local", "false") != "true":
+        return False
+    return bool(Settings.get("backup_local_path", "").strip())
+
+
+def is_configured() -> bool:
+    """Return True if at least one backup destination is enabled and configured."""
+    return is_remote_configured() or is_local_configured()
 
 
 def run_backup_async(app) -> None:
