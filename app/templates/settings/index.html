@@ -288,9 +288,9 @@
         <div>
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Database Backup</h2>
             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Backs up all tables except the voter file via SCP/SFTP to a remote server.
-                The backup is in PostgreSQL custom format and can be restored with
-                <code class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">pg_restore</code>.
+                Backs up all tables except the voter file. Supports remote SFTP upload, local
+                filesystem storage, or both. The backup is in PostgreSQL custom format and can
+                be restored with <code class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">pg_restore</code>.
             </p>
         </div>
 
@@ -363,10 +363,40 @@
         {% endif %}
 
         <!-- SCP configuration form -->
-        <form method="POST" action="{{ url_for('settings.save_backup_config') }}"
+        <form id="backup-config-form" method="POST" action="{{ url_for('settings.save_backup_config') }}"
               enctype="multipart/form-data"
               class="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <!-- Destination selection -->
+            <div class="space-y-2">
+                <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Backup Destinations</p>
+                <div class="flex flex-col gap-2">
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" name="backup_enable_remote" id="backup_enable_remote" value="1"
+                               {% if backup_config.enable_remote == 'true' %}checked{% endif %}
+                               onchange="updateBackupDestinationVisibility()"
+                               class="rounded border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-navy-600">
+                        <label for="backup_enable_remote" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Upload via SFTP
+                        </label>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" name="backup_enable_local" id="backup_enable_local" value="1"
+                               {% if backup_config.enable_local == 'true' %}checked{% endif %}
+                               onchange="updateBackupDestinationVisibility()"
+                               class="rounded border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-navy-600">
+                        <label for="backup_enable_local" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Save to local directory
+                        </label>
+                    </div>
+                </div>
+                <p id="destination-error" class="text-sm text-red-600 dark:text-red-400 hidden">
+                    At least one backup destination must be enabled when a schedule is set.
+                </p>
+            </div>
+
+            <!-- SFTP fields (hidden when SFTP unchecked) -->
+            <div id="sftp-config-section">
             <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">SCP / SFTP Configuration</h3>
 
             <div class="grid grid-cols-3 gap-4">
@@ -441,6 +471,23 @@
                        placeholder="/backups/petition-qc"
                        class="block w-full rounded-md bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white px-3 py-2 text-sm font-mono focus:border-navy-500 focus:ring-navy-500">
             </div>
+            </div><!-- end sftp-config-section -->
+
+            <!-- Local directory field (hidden when local unchecked) -->
+            <div id="local-config-section">
+                <div>
+                    <label for="backup_local_path" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Local Directory
+                    </label>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                        Absolute path on the server where backup files will be written. Must exist and be writable.
+                    </p>
+                    <input type="text" name="backup_local_path" id="backup_local_path"
+                           value="{{ backup_config.local_path }}"
+                           placeholder="/var/backups/mandate"
+                           class="block w-full rounded-md bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white px-3 py-2 text-sm font-mono focus:border-navy-500 focus:ring-navy-500">
+                </div>
+            </div><!-- end local-config-section -->
 
             <div>
                 <label for="backup_schedule" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -865,5 +912,29 @@ async function testBackupConnection() {
         btn.textContent = 'Test Connection';
     }
 }
+
+function updateBackupDestinationVisibility() {
+    const remoteEnabled = document.getElementById('backup_enable_remote').checked;
+    const localEnabled = document.getElementById('backup_enable_local').checked;
+    document.getElementById('sftp-config-section').style.display = remoteEnabled ? '' : 'none';
+    document.getElementById('local-config-section').style.display = localEnabled ? '' : 'none';
+}
+
+document.getElementById('backup-config-form').addEventListener('submit', function (e) {
+    const schedule = document.getElementById('backup_schedule').value;
+    const remoteEnabled = document.getElementById('backup_enable_remote').checked;
+    const localEnabled = document.getElementById('backup_enable_local').checked;
+    const err = document.getElementById('destination-error');
+    if (schedule && !remoteEnabled && !localEnabled) {
+        e.preventDefault();
+        err.classList.remove('hidden');
+        err.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+        err.classList.add('hidden');
+    }
+});
+
+// Apply initial visibility on page load
+updateBackupDestinationVisibility();
 </script>
 {% endblock %}
