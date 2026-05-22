@@ -251,6 +251,10 @@ class Settings(db.Model):
 
         If *key_content* is provided it replaces any previously stored key.
         Omit (or pass None) to keep the existing stored key unchanged.
+
+        If *enable_remote* / *enable_local* are omitted the defaults leave remote
+        enabled and local disabled, matching fresh-install behaviour.
+        *local_path* is stripped of leading/trailing whitespace before storage.
         """
         cls.set("backup_scp_host", host.strip())
         cls.set("backup_scp_port", port.strip() or "22")
@@ -258,8 +262,8 @@ class Settings(db.Model):
         cls.set("backup_scp_remote_path", remote_path.strip())
         if key_content is not None:
             cls.set("backup_scp_key_content", key_content)
-        cls.set("backup_enable_remote", enable_remote)
-        cls.set("backup_enable_local", enable_local)
+        cls.set("backup_enable_remote", "true" if enable_remote in ("true", "1", "on") else "false")
+        cls.set("backup_enable_local",  "true" if enable_local  in ("true", "1", "on") else "false")
         cls.set("backup_local_path", local_path.strip())
 
     # ------------------------------------------------------------------
