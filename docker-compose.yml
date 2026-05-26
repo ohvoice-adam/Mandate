@@ -35,6 +35,7 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     volumes:
       - uploads:/app/uploads
+      - /var/backups/mandate:/var/backups/mandate
     networks:
       - default
       - proxy

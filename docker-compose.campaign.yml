@@ -50,6 +50,7 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     volumes:
       - uploads:/app/uploads
+      - ${LOCAL_BACKUP_PATH:-/var/backups/${CAMPAIGN_CONTAINER_NAME}}:/var/backups/mandate
     networks:
       - default
       - proxy
