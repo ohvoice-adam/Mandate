@@ -57,6 +57,7 @@ def new():
         email = request.form.get("email", "").strip()
         first_name = request.form.get("first_name")
         last_name = request.form.get("last_name")
+        phone = request.form.get("phone", "").strip() or None
         role = request.form.get("role", UserRole.ENTERER)
         org_id = request.form.get("organization_id")
         organization_id = int(org_id) if org_id else None
@@ -78,6 +79,7 @@ def new():
             email=email,
             first_name=first_name,
             last_name=last_name,
+            phone=phone,
             role=role,
             organization_id=organization_id,
         )
@@ -151,6 +153,7 @@ def edit(id):
         user.email = email
         user.first_name = request.form.get("first_name")
         user.last_name = request.form.get("last_name")
+        user.phone = request.form.get("phone", "").strip() or None
         user.role = role
         user.is_active = request.form.get("is_active") == "on"
 
