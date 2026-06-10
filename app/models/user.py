@@ -58,6 +58,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(256))
     first_name = db.Column(db.String(100))
     last_name = db.Column(db.String(100))
+    phone = db.Column(db.String(30), nullable=True)
     role = db.Column(db.String(20), default=UserRole.ENTERER, nullable=False)
     # ForeignKey("organizations.id") creates a DB-level constraint; SQLAlchemy
     # uses it to build the JOIN when you access user.organization.
