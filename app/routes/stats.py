@@ -112,6 +112,7 @@ def export_matched_csv():
     """Download matched signatures as a CSV including sos_voterid and voter names."""
     from app.models import Settings
     city_aliases = Settings.get_city_aliases()
+    resident_col = f"{Settings.get_target_city_slug()}_resident"
     extra_sql, extra_params, label = _export_filters()
 
     rows = db.session.execute(text(f"""
@@ -158,7 +159,7 @@ def export_matched_csv():
         "zip",
         "registered_city",
         "matched",
-        "columbus_resident",
+        resident_col,
         "book_number",
         "collector",
         "date_entered",

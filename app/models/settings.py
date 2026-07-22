@@ -88,6 +88,25 @@ class Settings(db.Model):
         return city.title() if city else "Columbus"
 
     @classmethod
+    def get_target_city_slug(cls) -> str:
+        """
+        Return a snake_case identifier for the target city, suitable for use in
+        column headers / machine-readable field names (e.g. "columbus",
+        "grove_city"). One trailing city suffix (" CITY" / "-CITY") is dropped
+        so "COLUMBUS CITY" -> "columbus" and "GROVE CITY-CITY" -> "grove_city".
+        Non-alphanumeric runs collapse to single underscores.
+        """
+        import re
+
+        city = (cls.get_target_city() or "COLUMBUS").upper().strip()
+        for suffix in _CITY_SUFFIXES:
+            if city.endswith(suffix):
+                city = city[: -len(suffix)]
+                break  # at most one suffix applies to the stored target
+        slug = re.sub(r"[^a-z0-9]+", "_", city.lower()).strip("_")
+        return slug or "target_city"
+
+    @classmethod
     def get_city_aliases(cls) -> list[str]:
         """
         Return all city-name variants in the voter data that are equivalent to
