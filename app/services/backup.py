@@ -11,6 +11,7 @@ import logging
 import os
 import threading
 from datetime import datetime
+from typing import Any
 
 from flask import Flask
 
@@ -20,6 +21,7 @@ from app.services.backup_dump import (
     server_major_version,
 )
 from app.services.backup_dump import create_pg_dump as _create_pg_dump
+from app.services.backup_retention import BackupNaming
 
 # Re-exported for callers that use backup_service.test_sftp_connection.
 from app.services.backup_sftp import test_sftp_connection  # noqa: F401
@@ -164,13 +166,20 @@ def _send_to_destinations(dump_file: str, schedule: str) -> list[str]:
     gdrive_key = Settings.get("backup_gdrive_sa_json") or ""
     gdrive_folder = (Settings.get("backup_gdrive_folder_id") or "").strip()
 
+    # One name per run, so every destination gets an identical filename.
+    naming = BackupNaming.from_settings()
+    # Record the prefix before writing anything, so retention keeps managing
+    # these files even after the organization is renamed.
+    backup_retention.record_prefix_used(naming.prefix)
+    name = {"filename": naming.filename(datetime.now()), "prefixes": naming.prefixes}
+
     destinations = [
         ("remote", "Remote", is_remote_configured(),
-         lambda: _sftp_upload(dump_file, scp_config, schedule=schedule)),
+         lambda: _sftp_upload(dump_file, scp_config, schedule=schedule, **name)),
         ("local", "Local", is_local_configured(),
-         lambda: _local_save(dump_file, local_path, schedule=schedule)),
+         lambda: _local_save(dump_file, local_path, schedule=schedule, **name)),
         ("gdrive", "Google Drive", is_gdrive_configured(),
-         lambda: _gdrive_upload(dump_file, gdrive_key, gdrive_folder, schedule=schedule)),
+         lambda: _gdrive_upload(dump_file, gdrive_key, gdrive_folder, schedule=schedule, **name)),
     ]
     errors: list[str] = []
     for key, label, enabled, send in destinations:
@@ -202,21 +211,27 @@ def _record_backup_result(errors: list[str]) -> None:
             logger.exception("Backup notification failed (backup itself succeeded)")
 
 
-def _sftp_upload(local_path: str, scp_config: dict, schedule: str = "") -> None:
-    """Upload via SFTP (thin wrapper so tests can patch it here)."""
-    backup_sftp.sftp_upload(local_path, scp_config, schedule=schedule)
+# The three wrappers below exist so tests can patch each destination here.
+# *naming* carries ``filename`` and ``prefixes``; omitted, the destination
+# falls back to legacy ``petition-qc`` naming.
+
+def _sftp_upload(local_path: str, scp_config: dict, schedule: str = "", **naming: Any) -> None:
+    """Upload via SFTP."""
+    backup_sftp.sftp_upload(local_path, scp_config, schedule=schedule, **naming)
 
 
-def _local_save(dump_path: str, local_dir: str, schedule: str = "") -> None:
-    """Copy to the local backup directory (thin wrapper so tests can patch it here)."""
-    backup_retention.local_save(dump_path, local_dir, schedule=schedule)
+def _local_save(dump_path: str, local_dir: str, schedule: str = "", **naming: Any) -> None:
+    """Copy to the local backup directory."""
+    backup_retention.local_save(dump_path, local_dir, schedule=schedule, **naming)
 
 
-def _gdrive_upload(dump_path: str, sa_json: str, folder_id: str, schedule: str = "") -> None:
-    """Upload to Google Drive (thin wrapper so tests can patch it here)."""
+def _gdrive_upload(
+    dump_path: str, sa_json: str, folder_id: str, schedule: str = "", **naming: Any
+) -> None:
+    """Upload to Google Drive."""
     from app.services import backup_gdrive
 
-    backup_gdrive.upload(dump_path, sa_json, folder_id, schedule=schedule)
+    backup_gdrive.upload(dump_path, sa_json, folder_id, schedule=schedule, **naming)
 
 
 def _send_backup_notification(success: bool, error_msg: str | None) -> None:

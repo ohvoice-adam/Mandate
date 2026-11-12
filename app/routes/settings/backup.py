@@ -22,6 +22,7 @@ from app.routes.settings import bp
 from app.services import backup as backup_service
 from app.services import backup_gdrive as gdrive_service
 from app.services import scheduler as scheduler_service
+from app.services.backup_retention import BackupNaming
 
 
 def _read_scp_key_form() -> tuple[str | None, str | None]:
@@ -200,7 +201,9 @@ def download_backup() -> ResponseReturnValue:
             current_app.logger.warning("Could not delete temp dump %s", dump_path)
         return response
 
-    filename = f"mandate-backup-{datetime.now().strftime('%Y%m%d-%H%M%S')}.dump"
+    # Same naming as stored backups; downloads never go through retention,
+    # so the prefix isn't recorded.
+    filename = BackupNaming.from_settings().filename(datetime.now())
     return send_file(
         dump_path,
         as_attachment=True,

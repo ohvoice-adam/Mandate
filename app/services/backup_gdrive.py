@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import re
+from collections.abc import Iterable
 from datetime import datetime
 from typing import Any
 
@@ -23,7 +24,12 @@ from google.auth.exceptions import GoogleAuthError
 from google.auth.transport.requests import AuthorizedSession
 from google.oauth2 import service_account
 
-from app.services.backup_retention import select_backups_to_keep, sort_backup_names
+from app.services.backup_retention import (
+    LEGACY_PREFIXES,
+    BackupNaming,
+    select_backups_to_keep,
+    sort_backup_names,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -116,11 +122,17 @@ def _raise_for_status(resp: Any, action: str) -> None:
 # Upload + retention
 # ---------------------------------------------------------------------------
 
-def upload(dump_path: str, sa_json: str, folder_id: str, schedule: str = "") -> str:
+def upload(
+    dump_path: str,
+    sa_json: str,
+    folder_id: str,
+    schedule: str = "",
+    filename: str | None = None,
+    prefixes: Iterable[str] = LEGACY_PREFIXES,
+) -> str:
     """Upload *dump_path* to the Drive folder, apply retention, return file ID."""
     session = _session(sa_json)
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    name = f"petition-qc-backup-{timestamp}.dump"
+    name = filename or BackupNaming().filename(datetime.now())
 
     init = session.post(
         f"{_UPLOAD_API}/files",
@@ -148,7 +160,7 @@ def upload(dump_path: str, sa_json: str, folder_id: str, schedule: str = "") -> 
     file_id = str(resp.json().get("id", ""))
     logger.info("Drive backup uploaded: %s (%s)", name, file_id)
 
-    _apply_retention(session, folder_id, schedule)
+    _apply_retention(session, folder_id, schedule, prefixes)
     return file_id
 
 
@@ -173,7 +185,12 @@ def _list_folder(session: AuthorizedSession, folder_id: str) -> list[dict[str, s
         params["pageToken"] = token
 
 
-def _apply_retention(session: AuthorizedSession, folder_id: str, schedule: str) -> None:
+def _apply_retention(
+    session: AuthorizedSession,
+    folder_id: str,
+    schedule: str,
+    prefixes: Iterable[str] = LEGACY_PREFIXES,
+) -> None:
     """Trash Drive backups that fall outside the retention policy.
 
     Files are moved to the Shared Drive's trash (auto-purged after 30 days)
@@ -188,7 +205,7 @@ def _apply_retention(session: AuthorizedSession, folder_id: str, schedule: str) 
         return
 
     ids_by_name = {f["name"]: f["id"] for f in files}
-    backups = sort_backup_names(list(ids_by_name))
+    backups = sort_backup_names(ids_by_name, prefixes)
     keep = select_backups_to_keep(backups, schedule)
 
     for _, name in backups:

@@ -457,6 +457,9 @@
       </ul>
       {{ p('Use Test Google Drive after saving to confirm the folder is reachable. Old backups are moved to the Shared Drive trash according to the same retention rules as SFTP, and Google deletes them permanently after 30 days.') }}
 
+      {{ h3('Backup File Names') }}
+      {{ p('Backup files, including Download Backup Now, are named after your organization (set under Branding), for example ohio-voice-backup-20261112-020000.dump. With no organization name set they start with petition-qc. Mandate remembers every name it has used for backups, so older petition-qc backups and backups made under a previous organization name are cleaned up by the same retention rules. Files with any other name are never deleted, so renaming a backup file keeps it permanently.') }}
+
       {{ h3('Email (SMTP)') }}
       {{ p('Configure outgoing email for password-reset emails and backup notifications. Fields:') }}
       <ul class="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">

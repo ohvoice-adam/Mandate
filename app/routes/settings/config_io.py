@@ -11,12 +11,15 @@ from app.models import Settings, admin_required
 from app.routes.settings import bp
 from app.services import scheduler as scheduler_service
 
-# Secrets and large blobs never leave (or enter) via config export/import.
+# Never leave (or enter) via config export/import: secrets, large blobs, and
+# the backup-name history, which belongs to this instance's backup folders
+# (importing another campaign's would let retention manage its files).
 SENSITIVE_KEYS = frozenset({
     "backup_scp_key_content",
     "backup_gdrive_sa_json",
     "smtp_password",
     "branding_logo_content",
+    "backup_name_prefixes",
 })
 
 
