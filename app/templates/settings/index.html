@@ -289,7 +289,7 @@
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Database Backup</h2>
             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 Backs up all tables except the voter file. Supports remote SFTP upload, local
-                filesystem storage, or both. The backup is in PostgreSQL custom format and can
+                filesystem storage, Google Drive, or any combination. The backup is in PostgreSQL custom format and can
                 be restored with <code class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">pg_restore</code>.
             </p>
         </div>
@@ -387,6 +387,15 @@
                                class="rounded border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-navy-600">
                         <label for="backup_enable_local" class="text-sm font-medium text-gray-700 dark:text-gray-300">
                             Save to local directory
+                        </label>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" name="backup_enable_gdrive" id="backup_enable_gdrive" value="1"
+                               {% if backup_config.enable_gdrive == 'true' %}checked{% endif %}
+                               onchange="updateBackupDestinationVisibility()"
+                               class="rounded border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-navy-600">
+                        <label for="backup_enable_gdrive" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Upload to Google Drive
                         </label>
                     </div>
                 </div>
@@ -488,6 +497,8 @@
                            class="block w-full rounded-md bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white px-3 py-2 text-sm font-mono focus:border-navy-500 focus:ring-navy-500">
                 </div>
             </div><!-- end local-config-section -->
+
+            {% include "settings/_backup_gdrive.html" %}
 
             <div>
                 <label for="backup_schedule" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -918,14 +929,17 @@ function updateBackupDestinationVisibility() {
     const localEnabled = document.getElementById('backup_enable_local').checked;
     document.getElementById('sftp-config-section').style.display = remoteEnabled ? '' : 'none';
     document.getElementById('local-config-section').style.display = localEnabled ? '' : 'none';
+    const gdriveEnabled = document.getElementById('backup_enable_gdrive').checked;
+    document.getElementById('gdrive-config-section').style.display = gdriveEnabled ? '' : 'none';
 }
 
 document.getElementById('backup-config-form').addEventListener('submit', function (e) {
     const schedule = document.getElementById('backup_schedule').value;
     const remoteEnabled = document.getElementById('backup_enable_remote').checked;
     const localEnabled = document.getElementById('backup_enable_local').checked;
+    const gdriveEnabled = document.getElementById('backup_enable_gdrive').checked;
     const err = document.getElementById('destination-error');
-    if (schedule && !remoteEnabled && !localEnabled) {
+    if (schedule && !remoteEnabled && !localEnabled && !gdriveEnabled) {
         e.preventDefault();
         err.classList.remove('hidden');
         err.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

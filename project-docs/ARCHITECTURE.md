@@ -89,7 +89,8 @@ app/
     ├── voter_search.py  # VoterSearchService — hybrid B-tree + trigram search
     ├── voter_import.py  # VoterImportService — background CSV import
     ├── scheduler.py     # APScheduler — scheduled backups + digest emails
-    ├── backup.py        # pg_dump + SFTP upload
+    ├── backup.py        # pg_dump + SFTP/local destinations, retention
+    ├── backup_gdrive.py # Google Drive destination (service account → Shared Drive)
     ├── pdf_print.py     # PyMuPDF — stamp serial numbers onto PDF templates
     ├── stats.py         # StatsService — aggregate SQL queries
     ├── email.py         # SMTP email sending
@@ -325,7 +326,7 @@ Uses **APScheduler** `BackgroundScheduler` (daemon thread, same process). Every 
 
 | Job | Trigger | What it does |
 |---|---|---|
-| `scheduled_backup` | Cron from Settings (`hourly`/`daily`/`weekly`) | `pg_dump` → SFTP upload via paramiko |
+| `scheduled_backup` | Cron from Settings (`hourly`/`daily`/`weekly`) | `pg_dump` → each enabled destination: SFTP (paramiko), local dir, Google Drive (REST v3 via google-auth) |
 | `backup_digest_daily` | Daily at 08:00 UTC | Sends batched backup-success email |
 | `backup_digest_weekly` | Sunday at 08:00 UTC | Sends weekly digest |
 

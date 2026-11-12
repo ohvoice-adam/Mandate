@@ -30,7 +30,7 @@ A Flask web application for validating Ohio election petition signatures against
 - **Voter file import** — web-based CSV import with progress tracking, county-duplicate warning, and 24-hour rollback window
 - **Branding** — org name, logo upload with auto-extracted color palette, custom fonts (headline + body), white-label mode
 - **SMTP email** — configurable email for password resets and backup notifications
-- **SCP backup** — scheduled database backups via SFTP with per-schedule notifications
+- **Database backup** — scheduled backups to SFTP, a local directory, and/or a Google Shared Drive, with retention and per-schedule notifications
 - **Settings export/import** — download/restore all non-sensitive settings as JSON
 - **System health dashboard** — active users with last signature timestamp, DB stats, voter counts, 24h activity chart, backup status
 - **PDF petition printing** — stamp serial numbers onto uploaded cover/petition PDF templates; serial range overlap protection
@@ -110,7 +110,7 @@ Most runtime configuration is stored in the `settings` DB table and managed via 
 | Target city | City name used for voter eligibility filtering |
 | Signature goal | Target unique signature count for the progress bar |
 | Branding | Org name, logo, colors, fonts |
-| Backup | SFTP host/credentials/schedule for DB backups |
+| Backup | Destinations (SFTP, local dir, Google Drive), credentials, schedule |
 | SMTP | Email server for password resets and backup notifications |
 
 ## Project Structure
@@ -149,7 +149,8 @@ app/
 │   ├── fonts.py             # Font list and CSS stack helpers
 │   ├── pdf_print.py         # PyMuPDF serial number stamping
 │   ├── voter_import.py      # CSV import with progress + rollback
-│   ├── backup.py            # SFTP backup execution
+│   ├── backup.py            # pg_dump + SFTP/local backup, retention
+│   ├── backup_gdrive.py     # Google Drive (Shared Drive) backup destination
 │   ├── scheduler.py         # APScheduler job management
 │   └── email.py             # SMTP email sending
 └── templates/

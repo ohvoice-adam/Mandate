@@ -153,6 +153,25 @@ Mandate uses database migrations (Alembic). There is no automated rollback — t
 
 ---
 
+## Google Drive Backups
+
+Backups can be uploaded to a Google **Shared Drive** (requires Google Workspace). Credentials live in the `settings` table, not `.env`, so each campaign can use its own folder.
+
+One-time Google Cloud setup (one service account can serve every campaign):
+
+1. In Google Cloud Console, create or pick a project and enable the **Google Drive API**.
+2. Create a **service account** (no project roles needed) and download a **JSON key**.
+3. In Google Drive, add the service account's email to the Shared Drive as **Content manager**. Use a separate folder per campaign.
+4. In Mandate → Settings → Database Backup, tick **Upload to Google Drive**, upload the JSON key, paste the folder link, save, then click **Test Google Drive**.
+
+Notes:
+- A personal My Drive folder will not work: service accounts have no storage quota there.
+- Retention moves old backups to the Shared Drive trash, and Google purges them after 30 days.
+- Outbound HTTPS to `www.googleapis.com` and `oauth2.googleapis.com` must be allowed from the web container.
+- The key is excluded from Settings → Export Config, like the SSH key.
+
+---
+
 ## Monitoring
 
 | What to watch | How |

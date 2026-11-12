@@ -1,0 +1,108 @@
+{# Google Drive backup destination — included inside #backup-config-form in settings/index.html #}
+<div id="gdrive-config-section" class="space-y-4" {% if backup_config.enable_gdrive != 'true' %}style="display:none"{% endif %}>
+    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Google Drive Configuration</h3>
+    <details class="text-xs text-gray-500 dark:text-gray-400">
+        <summary class="cursor-pointer font-medium text-gray-600 dark:text-gray-300">How to set this up</summary>
+        <ol class="list-decimal ml-5 mt-2 space-y-1">
+            <li>In Google Cloud Console, enable the <strong>Google Drive API</strong> for a project.</li>
+            <li>Create a <strong>service account</strong> in that project and download a JSON key for it.</li>
+            <li>In Google Drive, open a <strong>Shared Drive</strong> (Google Workspace required) and add the
+                service account's email as a member with the <strong>Content manager</strong> role.</li>
+            <li>Create or pick a folder in that Shared Drive and paste its link or ID below.</li>
+        </ol>
+        <p class="mt-2">Service accounts have no storage of their own, so a folder in a personal My Drive will not work.</p>
+    </details>
+
+    <div>
+        <label for="gdrive_key_file" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Service Account Key (JSON)
+        </label>
+        {% if backup_config.has_gdrive_key %}
+        <p class="flex items-center gap-1.5 text-xs text-green-700 dark:text-green-400 mb-1">
+            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414L8.414 15l-4.121-4.121a1 1 0 011.414-1.414L8.414 12.172l7.879-7.879a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+            Key configured. Upload a new file to replace it.
+        </p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+            Share the Drive folder with:
+            <code class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded break-all">{{ backup_config.gdrive_client_email or '(unreadable key)' }}</code>
+        </p>
+        {% else %}
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+            Upload the JSON key file downloaded from Google Cloud. It is stored in the database and never exported.
+        </p>
+        {% endif %}
+        <input type="file" name="gdrive_key_file" id="gdrive_key_file"
+               accept=".json,application/json"
+               class="block w-full text-sm text-gray-700 dark:text-gray-300
+                      file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0
+                      file:text-sm file:font-medium
+                      file:bg-gray-100 dark:file:bg-gray-700
+                      file:text-gray-700 dark:file:text-gray-200
+                      hover:file:bg-gray-200 dark:hover:file:bg-gray-600">
+    </div>
+
+    <div>
+        <label for="gdrive_folder_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Drive Folder
+        </label>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+            Paste the folder's link (<code class="font-mono">https://drive.google.com/drive/folders/&hellip;</code>) or just its ID.
+        </p>
+        <input type="text" name="gdrive_folder_id" id="gdrive_folder_id"
+               value="{{ backup_config.gdrive_folder_id }}"
+               placeholder="1AbCdEfGhIjKlMnOpQrStUvWxYz"
+               class="block w-full rounded-md bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white px-3 py-2 text-sm font-mono focus:border-navy-500 focus:ring-navy-500">
+    </div>
+
+    {% if backup_config.has_gdrive_key and backup_config.gdrive_folder_id %}
+    <div class="flex items-center gap-3 flex-wrap">
+        <button id="test-gdrive-btn" type="button" onclick="testGdriveConnection()"
+                class="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium py-2 px-4 rounded-md text-sm">
+            Test Google Drive
+        </button>
+        <span id="test-gdrive-result" class="text-sm hidden break-words max-w-full"></span>
+    </div>
+    <p class="text-xs text-gray-500 dark:text-gray-400">Tests the saved settings. Save first if you changed anything above.</p>
+    {% endif %}
+</div><!-- end gdrive-config-section -->
+
+<script>
+async function testGdriveConnection() {
+    const btn = document.getElementById('test-gdrive-btn');
+    const result = document.getElementById('test-gdrive-result');
+    const fail = 'text-sm font-medium text-red-600 dark:text-red-400';
+    btn.disabled = true;
+    btn.textContent = 'Testing…';
+    result.className = 'text-sm text-gray-500 dark:text-gray-400';
+    result.textContent = 'Contacting Google Drive…';
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+    try {
+        const resp = await fetch('{{ url_for("settings.test_gdrive_connection") }}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token() }}' },
+            signal: controller.signal,
+        });
+        let data;
+        try {
+            data = await resp.json();
+        } catch (_) {
+            result.className = fail;
+            result.textContent = `Server error (HTTP ${resp.status}) — check application logs.`;
+            return;
+        }
+        result.className = data.ok ? 'text-sm font-medium text-green-700 dark:text-green-400' : fail;
+        result.textContent = data.message;
+    } catch (e) {
+        result.className = fail;
+        result.textContent = e.name === 'AbortError'
+            ? 'Timed out waiting for Google Drive.'
+            : 'Connection to server lost — check that the application is running.';
+    } finally {
+        clearTimeout(timer);
+        btn.disabled = false;
+        btn.textContent = 'Test Google Drive';
+    }
+}
+</script>

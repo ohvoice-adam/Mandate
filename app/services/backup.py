@@ -82,9 +82,20 @@ def is_local_configured() -> bool:
     return bool(Settings.get("backup_local_path", "").strip())
 
 
+def is_gdrive_configured() -> bool:
+    """Return True if Google Drive backup is enabled with a key and folder ID."""
+    from app.models import Settings
+
+    if Settings.get("backup_enable_gdrive", "false") != "true":
+        return False
+    return bool(Settings.get("backup_gdrive_sa_json")) and bool(
+        (Settings.get("backup_gdrive_folder_id") or "").strip()
+    )
+
+
 def is_configured() -> bool:
     """Return True if at least one backup destination is enabled and configured."""
-    return is_remote_configured() or is_local_configured()
+    return is_remote_configured() or is_local_configured() or is_gdrive_configured()
 
 
 def run_backup_async(app) -> None:
@@ -143,6 +154,9 @@ def _backup_thread(app) -> None:
         schedule = Settings.get("backup_schedule", "")
         do_remote = is_remote_configured()
         do_local = is_local_configured()
+        do_gdrive = is_gdrive_configured()
+        gdrive_key = Settings.get("backup_gdrive_sa_json") or ""
+        gdrive_folder = (Settings.get("backup_gdrive_folder_id") or "").strip()
 
         dump_file = None
         errors: list[str] = []
@@ -162,6 +176,13 @@ def _backup_thread(app) -> None:
                 except Exception as exc:
                     logger.exception("Local backup failed")
                     errors.append(f"local: {str(exc)[:200]}")
+
+            if do_gdrive:
+                try:
+                    _gdrive_upload(dump_file, gdrive_key, gdrive_folder, schedule=schedule)
+                except Exception as exc:
+                    logger.exception("Google Drive backup failed")
+                    errors.append(f"gdrive: {str(exc)[:200]}")
 
             if errors:
                 Settings.set("backup_last_status", f"error:{'; '.join(errors)}")
@@ -190,6 +211,13 @@ def _backup_thread(app) -> None:
                     os.unlink(dump_file)
                 except OSError:
                     pass
+
+
+def _gdrive_upload(dump_path: str, sa_json: str, folder_id: str, schedule: str = "") -> None:
+    """Upload to Google Drive (thin wrapper so tests can patch it here)."""
+    from app.services import backup_gdrive
+
+    backup_gdrive.upload(dump_path, sa_json, folder_id, schedule=schedule)
 
 
 def _send_backup_notification(success: bool, error_msg: str | None) -> None:
@@ -473,8 +501,12 @@ def _parse_backup_dt(filename: str) -> datetime | None:
         return None
 
 
-def _apply_retention(sftp, remote_dir: str, schedule: str) -> None:
-    """Delete remote backup files that fall outside the retention policy.
+def select_backups_to_keep(
+    backups: list[tuple[datetime, str]], schedule: str
+) -> set[str]:
+    """Return the filenames to keep under the retention policy.
+
+    *backups* must be sorted newest first.
 
     Retention rules
     ───────────────
@@ -483,6 +515,37 @@ def _apply_retention(sftp, remote_dir: str, schedule: str) -> None:
     daily  : last 7 dailies    +  last 4 weekly (Sun 02:00) slots
     weekly : last 4 weeklies
     """
+    keep: set[str] = set()
+
+    if schedule == "hourly":
+        keep.update(name for _, name in backups[:24])
+        dailies = [(dt, n) for dt, n in backups if dt.hour == 2 and dt.minute == 0]
+        keep.update(name for _, name in dailies[:7])
+        weeklies = [(dt, n) for dt, n in dailies if dt.weekday() == 6]
+        keep.update(name for _, name in weeklies[:4])
+    elif schedule == "daily":
+        keep.update(name for _, name in backups[:7])
+        weeklies = [
+            (dt, n) for dt, n in backups
+            if dt.weekday() == 6 and dt.hour == 2 and dt.minute == 0
+        ]
+        keep.update(name for _, name in weeklies[:4])
+    elif schedule == "weekly":
+        keep.update(name for _, name in backups[:4])
+
+    return keep
+
+
+def sort_backup_names(names: list[str]) -> list[tuple[datetime, str]]:
+    """Return (datetime, name) pairs for recognised backup files, newest first."""
+    return sorted(
+        ((dt, n) for n in names if (dt := _parse_backup_dt(n)) is not None),
+        reverse=True,
+    )
+
+
+def _apply_retention(sftp, remote_dir: str, schedule: str) -> None:
+    """Delete remote backup files that fall outside the retention policy."""
     if schedule not in ("hourly", "daily", "weekly"):
         return
 
@@ -492,42 +555,10 @@ def _apply_retention(sftp, remote_dir: str, schedule: str) -> None:
         logger.warning("Retention: could not list %s: %s", remote_dir, exc)
         return
 
-    # Build sorted list (newest first) of (datetime, filename) pairs.
-    backups = sorted(
-        ((dt, n) for n in names if (dt := _parse_backup_dt(n)) is not None),
-        reverse=True,
-    )
+    backups = sort_backup_names(names)
+    keep = select_backups_to_keep(backups, schedule)
 
-    keep: set[str] = set()
-
-    if schedule == "hourly":
-        # Last 24 hourlies (any time)
-        for _, name in backups[:24]:
-            keep.add(name)
-        # Last 7 daily slots (02:00 UTC, any weekday)
-        dailies = [(dt, n) for dt, n in backups if dt.hour == 2 and dt.minute == 0]
-        for _, name in dailies[:7]:
-            keep.add(name)
-        # Last 4 weekly slots (Sunday 02:00 UTC)
-        weeklies = [(dt, n) for dt, n in dailies if dt.weekday() == 6]
-        for _, name in weeklies[:4]:
-            keep.add(name)
-
-    elif schedule == "daily":
-        # Last 7 dailies (any time, since only one runs per day)
-        for _, name in backups[:7]:
-            keep.add(name)
-        # Last 4 weekly slots (Sunday 02:00 UTC)
-        weeklies = [(dt, n) for dt, n in backups if dt.weekday() == 6 and dt.hour == 2 and dt.minute == 0]
-        for _, name in weeklies[:4]:
-            keep.add(name)
-
-    elif schedule == "weekly":
-        # Last 4 weeklies
-        for _, name in backups[:4]:
-            keep.add(name)
-
-    for dt, name in backups:
+    for _, name in backups:
         if name not in keep:
             path = posixpath.join(remote_dir, name)
             try:
@@ -538,10 +569,7 @@ def _apply_retention(sftp, remote_dir: str, schedule: str) -> None:
 
 
 def _apply_local_retention(local_dir: str, schedule: str) -> None:
-    """Delete local backup files that fall outside the retention policy.
-
-    Uses the same keep rules as _apply_retention (the SFTP version).
-    """
+    """Delete local backup files that fall outside the retention policy."""
     if schedule not in ("hourly", "daily", "weekly"):
         return
 
@@ -551,36 +579,10 @@ def _apply_local_retention(local_dir: str, schedule: str) -> None:
         logger.warning("Local retention: could not list %s: %s", local_dir, exc)
         return
 
-    backups = sorted(
-        ((dt, n) for n in names if (dt := _parse_backup_dt(n)) is not None),
-        reverse=True,
-    )
+    backups = sort_backup_names(names)
+    keep = select_backups_to_keep(backups, schedule)
 
-    keep: set[str] = set()
-
-    if schedule == "hourly":
-        for _, name in backups[:24]:
-            keep.add(name)
-        dailies = [(dt, n) for dt, n in backups if dt.hour == 2 and dt.minute == 0]
-        for _, name in dailies[:7]:
-            keep.add(name)
-        weeklies = [(dt, n) for dt, n in dailies if dt.weekday() == 6]
-        for _, name in weeklies[:4]:
-            keep.add(name)
-    elif schedule == "daily":
-        for _, name in backups[:7]:
-            keep.add(name)
-        weeklies = [
-            (dt, n) for dt, n in backups
-            if dt.weekday() == 6 and dt.hour == 2 and dt.minute == 0
-        ]
-        for _, name in weeklies[:4]:
-            keep.add(name)
-    elif schedule == "weekly":
-        for _, name in backups[:4]:
-            keep.add(name)
-
-    for dt, name in backups:
+    for _, name in backups:
         if name not in keep:
             path = os.path.join(local_dir, name)
             try:

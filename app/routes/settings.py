@@ -32,6 +32,7 @@ from sqlalchemy import bindparam, text
 from app import db
 from app.models import Settings, admin_required
 from app.services import backup as backup_service
+from app.services import backup_gdrive as gdrive_service
 from app.services import scheduler as scheduler_service
 from app.services import email as email_service
 from app.utils import is_valid_email
@@ -102,6 +103,33 @@ def index():
     )
 
 
+def _read_gdrive_form() -> tuple[str | None, str, str | None]:
+    """Parse the Google Drive part of the backup form.
+
+    Returns (sa_json_or_None, folder_id, error_message_or_None).  sa_json is
+    None when no new key file was uploaded, so the stored key is kept.
+    """
+    sa_json = None
+    key_file = request.files.get("gdrive_key_file")
+    if key_file and key_file.filename:
+        try:
+            raw = key_file.read().decode("utf-8")
+        except (UnicodeDecodeError, ValueError):
+            return None, "", "Invalid Google key file — must be a JSON service-account key."
+        if raw.strip():
+            try:
+                gdrive_service.parse_service_account(raw)
+            except ValueError as exc:
+                return None, "", f"Google key file rejected: {exc}"
+            sa_json = raw
+
+    raw_folder = request.form.get("gdrive_folder_id", "").strip()
+    folder_id = gdrive_service.normalize_folder_id(raw_folder)
+    if raw_folder and not folder_id:
+        return None, "", "Google Drive folder must be a folder ID or a drive.google.com folder link."
+    return sa_json, folder_id, None
+
+
 @bp.route("/save-backup-config", methods=["POST"])
 @login_required
 @admin_required
@@ -122,6 +150,12 @@ def save_backup_config():
     enable_local = "true" if request.form.get("backup_enable_local") else "false"
     local_path = request.form.get("backup_local_path", "").strip()
 
+    gdrive_sa_json, gdrive_folder_id, gdrive_error = _read_gdrive_form()
+    if gdrive_error:
+        flash(gdrive_error, "error")
+        return redirect(url_for("settings.index"))
+    enable_gdrive = "true" if request.form.get("backup_enable_gdrive") else "false"
+
     Settings.save_backup_config(
         host=request.form.get("scp_host", ""),
         port=request.form.get("scp_port", "22"),
@@ -131,6 +165,9 @@ def save_backup_config():
         enable_remote=enable_remote,
         enable_local=enable_local,
         local_path=local_path,
+        enable_gdrive=enable_gdrive,
+        gdrive_folder_id=gdrive_folder_id,
+        gdrive_sa_json=gdrive_sa_json,
     )
 
     Settings.set("site_url", request.form.get("site_url", "").strip())
@@ -176,6 +213,23 @@ def test_backup_connection():
         return jsonify(ok=ok, message=message)
     except Exception:
         current_app.logger.exception("Unexpected error in test_backup_connection")
+        return jsonify(ok=False, message="Server error. Check the application logs."), 500
+
+
+@bp.route("/test-gdrive-connection", methods=["POST"])
+@login_required
+@admin_required
+def test_gdrive_connection():
+    """Test the Google Drive key + folder and return JSON {ok, message}."""
+    try:
+        sa_json = Settings.get("backup_gdrive_sa_json")
+        folder_id = (Settings.get("backup_gdrive_folder_id") or "").strip()
+        if not sa_json or not folder_id:
+            return jsonify(ok=False, message="Upload a service-account key and set a folder ID, then save.")
+        ok, message = gdrive_service.test_connection(sa_json, folder_id)
+        return jsonify(ok=ok, message=message)
+    except Exception:
+        current_app.logger.exception("Unexpected error in test_gdrive_connection")
         return jsonify(ok=False, message="Server error. Check the application logs."), 500
 
 
@@ -378,7 +432,10 @@ def export_config():
     import json
     from datetime import datetime
 
-    SENSITIVE = {"backup_scp_key_content", "smtp_password", "branding_logo_content"}
+    SENSITIVE = {
+        "backup_scp_key_content", "backup_gdrive_sa_json",
+        "smtp_password", "branding_logo_content",
+    }
 
     rows = Settings.query.order_by(Settings.key).all()
     data = {row.key: row.value for row in rows if row.key not in SENSITIVE}
@@ -399,7 +456,10 @@ def import_config():
     """Restore non-sensitive settings from an uploaded JSON file."""
     import json
 
-    SENSITIVE = {"backup_scp_key_content", "smtp_password", "branding_logo_content"}
+    SENSITIVE = {
+        "backup_scp_key_content", "backup_gdrive_sa_json",
+        "smtp_password", "branding_logo_content",
+    }
 
     uploaded = request.files.get("config_file")
     if not uploaded or not uploaded.filename:
@@ -488,6 +548,7 @@ def system_health():
 
     # Backup info
     backup_config = Settings.get_backup_config()
+    backup_configured = backup_service.is_configured()
 
     # Recent signature activity (last 24h, by hour)
     hourly_activity = db.session.execute(sqlt("""
@@ -522,6 +583,7 @@ def system_health():
         counts=counts,
         last_import=last_import,
         backup_config=backup_config,
+        backup_configured=backup_configured,
         hourly_activity=hourly_activity,
         login_history=login_history,
         target_city_display=target_city_display,
