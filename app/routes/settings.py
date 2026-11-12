@@ -103,6 +103,18 @@ def index():
     )
 
 
+def _save_backup_notify_form() -> None:
+    """Persist the notification fields of the backup form."""
+    notify_success = request.form.get("backup_notify_success", "")
+    if notify_success not in ("", "each", "daily", "weekly"):
+        notify_success = ""
+    Settings.save_backup_notify_config(
+        notify_email=request.form.get("backup_notify_email", "").strip(),
+        notify_success=notify_success,
+        notify_failure="true" if request.form.get("backup_notify_failure") else "false",
+    )
+
+
 def _read_gdrive_form() -> tuple[str | None, str, str | None]:
     """Parse the Google Drive part of the backup form.
 
@@ -178,16 +190,7 @@ def save_backup_config():
     Settings.set("backup_schedule", schedule)
     scheduler_service.apply_schedule(current_app._get_current_object())
 
-    notify_email = request.form.get("backup_notify_email", "").strip()
-    notify_success = request.form.get("backup_notify_success", "")
-    if notify_success not in ("", "each", "daily", "weekly"):
-        notify_success = ""
-    notify_failure = "true" if request.form.get("backup_notify_failure") else "false"
-    Settings.save_backup_notify_config(
-        notify_email=notify_email,
-        notify_success=notify_success,
-        notify_failure=notify_failure,
-    )
+    _save_backup_notify_form()
 
     flash("Backup configuration saved", "success")
     return redirect(url_for("settings.index"))
@@ -219,7 +222,7 @@ def test_backup_connection():
 @bp.route("/test-gdrive-connection", methods=["POST"])
 @login_required
 @admin_required
-def test_gdrive_connection():
+def test_gdrive_connection() -> tuple[Response, int] | Response:
     """Test the Google Drive key + folder and return JSON {ok, message}."""
     try:
         sa_json = Settings.get("backup_gdrive_sa_json")

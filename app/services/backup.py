@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 import threading
 from datetime import datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +123,7 @@ def run_backup_async(app) -> None:
     thread.start()
 
 
-def _backup_thread(app) -> None:
+def _backup_thread(app: Any) -> None:
     """Background thread: dump the database and send to each configured destination."""
     with app.app_context():
         from app import db
@@ -132,15 +133,6 @@ def _backup_thread(app) -> None:
         db_url = os.environ.get("DATABASE_URL") or app.config.get(
             "SQLALCHEMY_DATABASE_URI", ""
         )
-        scp_config = {
-            "host": Settings.get("backup_scp_host"),
-            "port": int(Settings.get("backup_scp_port", "22") or "22"),
-            "user": Settings.get("backup_scp_user"),
-            "key_content": Settings.get("backup_scp_key_content"),
-            "remote_path": Settings.get("backup_scp_remote_path"),
-        }
-        local_path = (Settings.get("backup_local_path") or "").strip()
-
         # Determine the PostgreSQL server major version so we can pick the
         # matching pg_dump binary (avoids "server version mismatch" errors).
         try:
@@ -151,51 +143,11 @@ def _backup_thread(app) -> None:
         except Exception:
             server_major = None
 
-        schedule = Settings.get("backup_schedule", "")
-        do_remote = is_remote_configured()
-        do_local = is_local_configured()
-        do_gdrive = is_gdrive_configured()
-        gdrive_key = Settings.get("backup_gdrive_sa_json") or ""
-        gdrive_folder = (Settings.get("backup_gdrive_folder_id") or "").strip()
-
         dump_file = None
-        errors: list[str] = []
         try:
             dump_file = _create_pg_dump(db_url, server_major)
-
-            if do_remote:
-                try:
-                    _sftp_upload(dump_file, scp_config, schedule=schedule)
-                except Exception as exc:
-                    logger.exception("Remote backup failed")
-                    errors.append(f"remote: {str(exc)[:200]}")
-
-            if do_local:
-                try:
-                    _local_save(dump_file, local_path, schedule=schedule)
-                except Exception as exc:
-                    logger.exception("Local backup failed")
-                    errors.append(f"local: {str(exc)[:200]}")
-
-            if do_gdrive:
-                try:
-                    _gdrive_upload(dump_file, gdrive_key, gdrive_folder, schedule=schedule)
-                except Exception as exc:
-                    logger.exception("Google Drive backup failed")
-                    errors.append(f"gdrive: {str(exc)[:200]}")
-
-            if errors:
-                Settings.set("backup_last_status", f"error:{'; '.join(errors)}")
-                try:
-                    _send_backup_notification(success=False, error_msg="; ".join(errors))
-                except Exception:
-                    logger.exception("Backup notification failed (backup also failed)")
-            else:
-                Settings.set("backup_last_status", "success")
-                try:
-                    _send_backup_notification(success=True, error_msg=None)
-                except Exception:
-                    logger.exception("Backup notification failed (backup itself succeeded)")
+            errors = _send_to_destinations(dump_file, Settings.get("backup_schedule", ""))
+            _record_backup_result(errors)
 
         except Exception as exc:
             logger.exception("Backup failed")
@@ -211,6 +163,63 @@ def _backup_thread(app) -> None:
                     os.unlink(dump_file)
                 except OSError:
                     pass
+
+
+def _send_to_destinations(dump_file: str, schedule: str) -> list[str]:
+    """Send *dump_file* to every enabled destination; return per-destination errors.
+
+    Each destination is attempted independently so one failure never blocks
+    the others.
+    """
+    from app.models import Settings
+
+    scp_config = {
+        "host": Settings.get("backup_scp_host"),
+        "port": int(Settings.get("backup_scp_port", "22") or "22"),
+        "user": Settings.get("backup_scp_user"),
+        "key_content": Settings.get("backup_scp_key_content"),
+        "remote_path": Settings.get("backup_scp_remote_path"),
+    }
+    local_path = (Settings.get("backup_local_path") or "").strip()
+    gdrive_key = Settings.get("backup_gdrive_sa_json") or ""
+    gdrive_folder = (Settings.get("backup_gdrive_folder_id") or "").strip()
+
+    destinations = [
+        ("remote", "Remote", is_remote_configured(),
+         lambda: _sftp_upload(dump_file, scp_config, schedule=schedule)),
+        ("local", "Local", is_local_configured(),
+         lambda: _local_save(dump_file, local_path, schedule=schedule)),
+        ("gdrive", "Google Drive", is_gdrive_configured(),
+         lambda: _gdrive_upload(dump_file, gdrive_key, gdrive_folder, schedule=schedule)),
+    ]
+    errors: list[str] = []
+    for key, label, enabled, send in destinations:
+        if not enabled:
+            continue
+        try:
+            send()
+        except Exception as exc:
+            logger.exception("%s backup failed", label)
+            errors.append(f"{key}: {str(exc)[:200]}")
+    return errors
+
+
+def _record_backup_result(errors: list[str]) -> None:
+    """Store the backup status and send the matching notification."""
+    from app.models import Settings
+
+    if errors:
+        Settings.set("backup_last_status", f"error:{'; '.join(errors)}")
+        try:
+            _send_backup_notification(success=False, error_msg="; ".join(errors))
+        except Exception:
+            logger.exception("Backup notification failed (backup also failed)")
+    else:
+        Settings.set("backup_last_status", "success")
+        try:
+            _send_backup_notification(success=True, error_msg=None)
+        except Exception:
+            logger.exception("Backup notification failed (backup itself succeeded)")
 
 
 def _gdrive_upload(dump_path: str, sa_json: str, folder_id: str, schedule: str = "") -> None:
@@ -544,7 +553,7 @@ def sort_backup_names(names: list[str]) -> list[tuple[datetime, str]]:
     )
 
 
-def _apply_retention(sftp, remote_dir: str, schedule: str) -> None:
+def _apply_retention(sftp: Any, remote_dir: str, schedule: str) -> None:
     """Delete remote backup files that fall outside the retention policy."""
     if schedule not in ("hourly", "daily", "weekly"):
         return
