@@ -204,8 +204,8 @@ class Settings(db.Model):
         try:
             import base64
             import hashlib
-            from app.services.backup import _load_pkey
-            pkey = _load_pkey(key_content)
+            from app.services.backup_sftp import load_pkey
+            pkey = load_pkey(key_content)
             digest = hashlib.sha256(pkey.asbytes()).digest()
             return "SHA256:" + base64.b64encode(digest).decode().rstrip("=")
         except Exception:

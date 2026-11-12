@@ -2,7 +2,7 @@
 import os
 import tempfile
 from datetime import datetime
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -159,7 +159,9 @@ class TestApplyLocalRetention:
             (tmp_path / f"petition-qc-backup-{ts}.dump").touch()
 
     def test_daily_keeps_seven_most_recent(self, tmp_path):
-        from app.services.backup import _apply_local_retention
+        from app.services.backup_retention import (
+            apply_local_retention as _apply_local_retention,
+        )
         # 10 daily files at 10:00 (not 02:00, so no weekly overlap)
         timestamps = [
             datetime(2024, 1, i + 1, 10, 0, 0).strftime("%Y%m%d-%H%M%S")
@@ -176,7 +178,9 @@ class TestApplyLocalRetention:
         assert "petition-qc-backup-20240101-100000.dump" not in remaining
 
     def test_weekly_keeps_four_most_recent(self, tmp_path):
-        from app.services.backup import _apply_local_retention
+        from app.services.backup_retention import (
+            apply_local_retention as _apply_local_retention,
+        )
         # 6 Sunday files at 02:00
         timestamps = [
             "20240107-020000",
@@ -196,7 +200,9 @@ class TestApplyLocalRetention:
         assert "petition-qc-backup-20240107-020000.dump" not in remaining
 
     def test_unknown_schedule_keeps_all(self, tmp_path):
-        from app.services.backup import _apply_local_retention
+        from app.services.backup_retention import (
+            apply_local_retention as _apply_local_retention,
+        )
         timestamps = ["20240101-020000", "20240102-020000", "20240103-020000"]
         self._make_backup_files(tmp_path, timestamps)
 
@@ -205,7 +211,9 @@ class TestApplyLocalRetention:
         assert len(list(tmp_path.iterdir())) == 3
 
     def test_non_matching_files_are_ignored(self, tmp_path):
-        from app.services.backup import _apply_local_retention
+        from app.services.backup_retention import (
+            apply_local_retention as _apply_local_retention,
+        )
         # Only 3 valid backups — the README should not be touched
         self._make_backup_files(tmp_path, [
             "20240101-020000", "20240102-020000", "20240103-020000",
@@ -341,9 +349,9 @@ class TestBackupThread:
 
 class TestSaveBackupConfigRoute:
     def test_stores_destination_settings(self, client, app):
-        from app.models import Settings
         from app import db
-        from tests.conftest import make_user, login
+        from app.models import Settings
+        from tests.conftest import login, make_user
 
         admin = make_user(role="admin")
         db.session.commit()
@@ -367,9 +375,9 @@ class TestSaveBackupConfigRoute:
         assert Settings.get("backup_local_path") == "/var/backups/mandate"
 
     def test_unchecked_remote_stores_false(self, client, app):
-        from app.models import Settings
         from app import db
-        from tests.conftest import make_user, login
+        from app.models import Settings
+        from tests.conftest import login, make_user
 
         admin = make_user(role="admin")
         db.session.commit()
