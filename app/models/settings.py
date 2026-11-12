@@ -183,7 +183,17 @@ class Settings(db.Model):
             "enable_remote": cls.get("backup_enable_remote", "true"),
             "enable_local": cls.get("backup_enable_local", "false"),
             "local_path": cls.get("backup_local_path", ""),
+            "enable_gdrive": cls.get("backup_enable_gdrive", "false"),
+            "gdrive_folder_id": cls.get("backup_gdrive_folder_id", ""),
+            "has_gdrive_key": bool(cls.get("backup_gdrive_sa_json")),
+            "gdrive_client_email": cls._gdrive_client_email(),
         }
+
+    @classmethod
+    def _gdrive_client_email(cls) -> str:
+        """Return the stored Google service account's email, or ''."""
+        from app.services.backup_gdrive import client_email
+        return client_email(cls.get("backup_gdrive_sa_json"))
 
     @classmethod
     def _compute_key_fingerprint(cls) -> str:
@@ -265,6 +275,9 @@ class Settings(db.Model):
         enable_remote: str = "true",
         enable_local: str = "false",
         local_path: str = "",
+        enable_gdrive: str = "false",
+        gdrive_folder_id: str = "",
+        gdrive_sa_json: str | None = None,
     ) -> None:
         """Persist SCP backup configuration and destination settings.
 
@@ -274,6 +287,9 @@ class Settings(db.Model):
         If *enable_remote* / *enable_local* are omitted the defaults leave remote
         enabled and local disabled, matching fresh-install behaviour.
         *local_path* is stripped of leading/trailing whitespace before storage.
+
+        *gdrive_sa_json* follows the same rule as *key_content*: None keeps the
+        stored Google service-account key.
         """
         cls.set("backup_scp_host", host.strip())
         cls.set("backup_scp_port", port.strip() or "22")
@@ -284,6 +300,10 @@ class Settings(db.Model):
         cls.set("backup_enable_remote", "true" if enable_remote in ("true", "1", "on") else "false")
         cls.set("backup_enable_local",  "true" if enable_local  in ("true", "1", "on") else "false")
         cls.set("backup_local_path", local_path.strip())
+        cls.set("backup_enable_gdrive", "true" if enable_gdrive in ("true", "1", "on") else "false")
+        cls.set("backup_gdrive_folder_id", gdrive_folder_id.strip())
+        if gdrive_sa_json is not None:
+            cls.set("backup_gdrive_sa_json", gdrive_sa_json)
 
     # ------------------------------------------------------------------
     # SMTP / email settings

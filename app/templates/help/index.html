@@ -449,6 +449,14 @@
       </ul>
       {{ p('Use Test Connection to verify credentials before saving. Use Run Backup Now to trigger an immediate backup outside the schedule.') }}
 
+      {{ h3('Database Backup (Google Drive)') }}
+      {{ p('Backups can also be uploaded to a folder on a Google Shared Drive (Google Workspace required). Tick Upload to Google Drive under Backup Destinations, then fill in:') }}
+      <ul class="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">
+        <li><strong>Service Account Key</strong> — the JSON key for a Google Cloud service account with the Drive API enabled.</li>
+        <li><strong>Drive Folder</strong> — the link or ID of a folder on a Shared Drive. Add the service account's email (shown after you upload the key) to the Shared Drive as a Content manager.</li>
+      </ul>
+      {{ p('Use Test Google Drive after saving to confirm the folder is reachable. Old backups are moved to the Shared Drive trash according to the same retention rules as SFTP, and Google deletes them permanently after 30 days.') }}
+
       {{ h3('Email (SMTP)') }}
       {{ p('Configure outgoing email for password-reset emails and backup notifications. Fields:') }}
       <ul class="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1 ml-1 mb-3">

@@ -59,7 +59,7 @@ Branding is fully database-driven. The context processor in `app/__init__.py` re
 
 ### Background Jobs
 
-`app/services/scheduler.py` uses APScheduler. Jobs: scheduled SCP backup (cron from Settings) and daily/weekly digest emails. Uses a PostgreSQL advisory lock (`0x4D414E45`) to prevent duplicate runs across workers. `apply_schedule(app)` is called whenever backup settings change.
+`app/services/scheduler.py` uses APScheduler. Jobs: scheduled backup (cron from Settings) to SFTP, local dir, and/or Google Drive (`app/services/backup_gdrive.py`, service account + Shared Drive) and daily/weekly digest emails. Uses a PostgreSQL advisory lock (`0x4D414E45`) to prevent duplicate runs across workers. `apply_schedule(app)` is called whenever backup settings change.
 
 ### Session Rollback
 
