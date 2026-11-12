@@ -3,12 +3,18 @@
 import io
 import logging
 import posixpath
+from collections.abc import Iterable
 from datetime import datetime
 from typing import Any
 
 import paramiko
 
-from app.services.backup_retention import select_backups_to_keep, sort_backup_names
+from app.services.backup_retention import (
+    LEGACY_PREFIXES,
+    BackupNaming,
+    select_backups_to_keep,
+    sort_backup_names,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +173,9 @@ def _auth_debug_snippet(log_text: str) -> str:
     return " // ".join(auth_lines[-12:]) if auth_lines else ""
 
 
-def apply_sftp_retention(sftp: Any, remote_dir: str, schedule: str) -> None:
+def apply_sftp_retention(
+    sftp: Any, remote_dir: str, schedule: str, prefixes: Iterable[str] = LEGACY_PREFIXES
+) -> None:
     """Delete remote backup files that fall outside the retention policy."""
     if schedule not in ("hourly", "daily", "weekly"):
         return
@@ -178,7 +186,7 @@ def apply_sftp_retention(sftp: Any, remote_dir: str, schedule: str) -> None:
         logger.warning("Retention: could not list %s: %s", remote_dir, exc)
         return
 
-    backups = sort_backup_names(names)
+    backups = sort_backup_names(names, prefixes)
     keep = select_backups_to_keep(backups, schedule)
 
     for _, name in backups:
@@ -191,18 +199,23 @@ def apply_sftp_retention(sftp: Any, remote_dir: str, schedule: str) -> None:
                 logger.warning("Retention: could not remove %s: %s", name, exc)
 
 
-def sftp_upload(local_path: str, scp_config: dict, schedule: str = "") -> None:
+def sftp_upload(
+    local_path: str,
+    scp_config: dict,
+    schedule: str = "",
+    filename: str | None = None,
+    prefixes: Iterable[str] = LEGACY_PREFIXES,
+) -> None:
     """Upload *local_path* to the remote server and apply the retention policy."""
     client = make_ssh_client(scp_config, timeout=30)
     try:
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        remote_filename = f"petition-qc-backup-{timestamp}.dump"
+        remote_filename = filename or BackupNaming().filename(datetime.now())
         remote_dir = scp_config["remote_path"].rstrip("/")
         remote_path = posixpath.join(remote_dir, remote_filename)
 
         sftp = client.open_sftp()
         sftp.put(local_path, remote_path)
-        apply_sftp_retention(sftp, remote_dir, schedule)
+        apply_sftp_retention(sftp, remote_dir, schedule, prefixes)
         sftp.close()
     finally:
         client.close()

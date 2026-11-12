@@ -82,7 +82,8 @@ class TestUpload:
         assert _BACKUP_RE.match(kwargs["json"]["name"])
         assert kwargs["headers"]["X-Upload-Content-Length"] == str(len(b"PGDMP-data"))
         assert session.put.call_args[0][0] == "https://upload/session"
-        retention.assert_called_once_with(session, FOLDER, "daily")
+        from app.services.backup_retention import LEGACY_PREFIXES
+        retention.assert_called_once_with(session, FOLDER, "daily", LEGACY_PREFIXES)
 
     def test_http_error_raises_with_google_message(self, tmp_path):
         dump = tmp_path / "x.dump"

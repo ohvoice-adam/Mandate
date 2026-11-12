@@ -167,6 +167,7 @@ One-time Google Cloud setup (one service account can serve every campaign):
 Notes:
 - A personal My Drive folder will not work: service accounts have no storage quota there.
 - Retention moves old backups to the Shared Drive trash, and Google purges them after 30 days.
+- Backup files (all destinations, and Download Backup Now) are named `<org-slug>-backup-YYYYMMDD-HHMMSS.dump`, using the Branding organization name, or `petition-qc-…` when none is set. Every slug used for a stored backup is recorded in the `backup_name_prefixes` setting. Retention manages all recorded slugs plus legacy `petition-qc`, so renaming the organization doesn't strand old backups. That setting is excluded from config export/import, since it belongs to this instance's backup folders.
 - Outbound HTTPS to `www.googleapis.com` and `oauth2.googleapis.com` must be allowed from the web container.
 - The key is excluded from Settings → Export Config, like the SSH key.
 
