@@ -78,7 +78,7 @@ class TestUpload:
         assert kwargs["params"]["supportsAllDrives"] == "true"
         assert kwargs["params"]["uploadType"] == "resumable"
         assert kwargs["json"]["parents"] == [FOLDER]
-        from app.services.backup import _BACKUP_RE
+        from app.services.backup_retention import BACKUP_RE as _BACKUP_RE
         assert _BACKUP_RE.match(kwargs["json"]["name"])
         assert kwargs["headers"]["X-Upload-Content-Length"] == str(len(b"PGDMP-data"))
         assert session.put.call_args[0][0] == "https://upload/session"

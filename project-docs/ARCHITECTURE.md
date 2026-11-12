@@ -61,6 +61,7 @@ app/
 │   ├── __init__.py      # Re-exports all models + auth decorators
 │   ├── user.py          # User, UserRole, admin_required, organizer_required, load_user
 │   ├── settings.py      # Settings (key-value store, all runtime config)
+│   ├── settings_groups.py # Backup/SMTP/branding helper mixins for Settings
 │   ├── voter.py         # Voter (imported county voter file)
 │   ├── signature.py     # Signature (one per petition entry)
 │   ├── batch.py         # Batch (one data-entry session; status: open/complete/rolled_back)
@@ -79,7 +80,8 @@ app/
 │   ├── users.py         # /users/* — user CRUD, invite link generation
 │   ├── collectors.py    # /collectors/* — collector and data-enterer CRUD
 │   ├── organizations.py # /organizations/* — organization CRUD
-│   ├── settings.py      # /settings/* — all admin settings, system health
+│   ├── settings/        # /settings/* — one blueprint split into general, backup, smtp,
+│   │                    #   branding, config_io, health modules
 │   ├── stats.py         # /stats/* — dashboards, CSV exports
 │   ├── imports.py       # /imports/* — voter file upload, progress, rollback
 │   ├── prints.py        # /prints/* — PDF template upload and generation
@@ -89,7 +91,10 @@ app/
     ├── voter_search.py  # VoterSearchService — hybrid B-tree + trigram search
     ├── voter_import.py  # VoterImportService — background CSV import
     ├── scheduler.py     # APScheduler — scheduled backups + digest emails
-    ├── backup.py        # pg_dump + SFTP/local destinations, retention
+    ├── backup.py        # Backup orchestration (run, status, notifications)
+    ├── backup_dump.py   # pg_dump wrapper
+    ├── backup_sftp.py   # SFTP destination + connection test
+    ├── backup_retention.py # Retention rules + local-directory destination
     ├── backup_gdrive.py # Google Drive destination (service account → Shared Drive)
     ├── pdf_print.py     # PyMuPDF — stamp serial numbers onto PDF templates
     ├── stats.py         # StatsService — aggregate SQL queries
@@ -332,7 +337,7 @@ Uses **APScheduler** `BackgroundScheduler` (daemon thread, same process). Every 
 
 A **PostgreSQL advisory lock** (`pg_try_advisory_xact_lock(0x4D414E45)`) prevents duplicate digest emails when all Gunicorn workers fire the same job simultaneously. The lock is transaction-scoped — released automatically on commit.
 
-The `download_backup` route in `routes/settings.py` also runs `pg_dump` locally and streams the result to the browser using `send_file()` + `after_this_request()` for temp-file cleanup.
+The `download_backup` route in `routes/settings/backup.py` also runs `pg_dump` locally and streams the result to the browser using `send_file()` + `after_this_request()` for temp-file cleanup.
 
 ### 6. Branding / Theming
 

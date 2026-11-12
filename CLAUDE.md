@@ -36,7 +36,7 @@ Default dev credentials: `organizer@dev.example` / `enterer@dev.example`, passwo
 
 ### Settings System
 
-All runtime configuration lives in the `settings` DB table (key-value store), not environment variables. `app/models/settings.py` provides `Settings.get(key, default)` and `Settings.set(key, value)`, plus higher-level grouped helpers like `get_branding_config()`, `get_backup_config()`, `get_smtp_config()`.
+All runtime configuration lives in the `settings` DB table (key-value store), not environment variables. `app/models/settings.py` provides `Settings.get(key, default)` and `Settings.set(key, value)`. Higher-level grouped helpers like `get_branding_config()`, `get_backup_config()`, `get_smtp_config()` live in mixins in `app/models/settings_groups.py` and are called as `Settings.<helper>()`.
 
 ### Roles & Authorization
 
@@ -59,7 +59,7 @@ Branding is fully database-driven. The context processor in `app/__init__.py` re
 
 ### Background Jobs
 
-`app/services/scheduler.py` uses APScheduler. Jobs: scheduled backup (cron from Settings) to SFTP, local dir, and/or Google Drive (`app/services/backup_gdrive.py`, service account + Shared Drive) and daily/weekly digest emails. Uses a PostgreSQL advisory lock (`0x4D414E45`) to prevent duplicate runs across workers. `apply_schedule(app)` is called whenever backup settings change.
+`app/services/scheduler.py` uses APScheduler. Jobs: scheduled backup (cron from Settings) and daily/weekly digest emails. Backup orchestration is `app/services/backup.py`; destinations are `backup_sftp.py`, `backup_retention.py` (local dir + shared retention rules) and `backup_gdrive.py` (service account + Shared Drive); `pg_dump` lives in `backup_dump.py`. Uses a PostgreSQL advisory lock (`0x4D414E45`) to prevent duplicate runs across workers. `apply_schedule(app)` is called whenever backup settings change.
 
 ### Session Rollback
 

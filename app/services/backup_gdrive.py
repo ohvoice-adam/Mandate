@@ -23,6 +23,8 @@ from google.auth.exceptions import GoogleAuthError
 from google.auth.transport.requests import AuthorizedSession
 from google.oauth2 import service_account
 
+from app.services.backup_retention import select_backups_to_keep, sort_backup_names
+
 logger = logging.getLogger(__name__)
 
 DRIVE_SCOPE = "https://www.googleapis.com/auth/drive"
@@ -177,8 +179,6 @@ def _apply_retention(session: AuthorizedSession, folder_id: str, schedule: str) 
     Files are moved to the Shared Drive's trash (auto-purged after 30 days)
     rather than deleted, which only needs the Content manager role.
     """
-    from app.services.backup import select_backups_to_keep, sort_backup_names
-
     if schedule not in ("hourly", "daily", "weekly"):
         return
     try:

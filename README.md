@@ -126,7 +126,8 @@ app/
 │   ├── batch.py             # Data entry sessions (status: open/complete/rolled_back)
 │   ├── batch_event.py       # Audit log for batch-level actions (rollbacks)
 │   ├── collector.py         # Collectors, Organizations, PaidCollectors
-│   ├── settings.py          # Key-value settings store
+│   ├── settings.py          # Key-value settings store (model, get/set)
+│   ├── settings_groups.py   # Backup/SMTP/branding helper mixins for Settings
 │   ├── voter_import.py      # Import job tracking
 │   └── print_job.py         # PDF print job records
 ├── routes/
@@ -138,7 +139,7 @@ app/
 │   ├── organizations.py     # Organization CRUD
 │   ├── users.py             # User management
 │   ├── stats.py             # Statistics & CSV export
-│   ├── settings.py          # App settings, backup, SMTP, branding, health
+│   ├── settings/            # Settings blueprint: general, backup, smtp, branding, config_io, health
 │   ├── imports.py           # Voter file import & rollback
 │   ├── prints.py            # PDF petition printing
 │   └── help.py              # Help page
@@ -149,7 +150,10 @@ app/
 │   ├── fonts.py             # Font list and CSS stack helpers
 │   ├── pdf_print.py         # PyMuPDF serial number stamping
 │   ├── voter_import.py      # CSV import with progress + rollback
-│   ├── backup.py            # pg_dump + SFTP/local backup, retention
+│   ├── backup.py            # Backup orchestration (run, status, notifications)
+│   ├── backup_dump.py       # pg_dump wrapper
+│   ├── backup_sftp.py       # SFTP destination + connection test
+│   ├── backup_retention.py  # Retention rules + local-directory destination
 │   ├── backup_gdrive.py     # Google Drive (Shared Drive) backup destination
 │   ├── scheduler.py         # APScheduler job management
 │   └── email.py             # SMTP email sending
